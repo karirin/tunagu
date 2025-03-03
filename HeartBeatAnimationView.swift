@@ -15,7 +15,7 @@ struct HeartBeatAnimationView: View {
     @State private var isEmotionSelectionViewPresented = false
     @State private var isHeartReceived = false
     @State private var heartCount: Int = 0
-    @State private var lastReceivedHeartCount: Int = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount")
+    @State private var lastReceivedHeartCount: Int = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount1")
     @State private var isPaired = false
     @State private var partnerEmotion: String = "happy"
     @State private var showAlert = false
@@ -59,7 +59,6 @@ struct HeartBeatAnimationView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 100, height: 100)
-                .foregroundColor(.red)
                 .scaleEffect(scale)
                 .scaleEffect(1.0 + CGFloat(heartCount) * 0.01)
                 .animation(
@@ -68,22 +67,18 @@ struct HeartBeatAnimationView: View {
                     value: scale
                 )
                 .shadow(radius: 3)
-                .onAppear {
-                    scale = 1.2 // アニメーション開始時に拡大
-                    signInAnonymously()
-                    observeHearts() // 受信側でハートを監視
-                    fetchTotalHeartCount()
-                }
                 .onTapGesture {
-                    canSendHeart { canSend in
-                        if canSend {
-                            explodeHearts() // ハートアニメーションを実行
-                            sendHeart() // Firebaseにハート送信
-                        } else {
-                            showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません") // アラートを表示
-                        }
-                    }
-                    //                    explodeHearts()
+//                    canSendHeart { canSend in
+//                        if canSend {
+//                            print("test")
+//                            explodeHearts() // ハートアニメーションを実行
+//                            sendHeart() // Firebaseにハート送信
+//                        } else {
+//                            showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません") // アラートを表示
+//                        }
+//                    }
+                    explodeHearts() // ハートアニメーションを実行
+                    sendHeart() // Firebaseにハート送信
                 }
             // 飛び散る小さなハートたち
             ForEach(hearts) { heart in
@@ -138,7 +133,8 @@ struct HeartBeatAnimationView: View {
                         .font(.system(size: 24))
                     }
                     .padding()
-                    .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                    .background(.white)
+//                    .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
                     .foregroundColor(.gray)
                     .fontWeight(.bold)
                     .clipShape(Capsule())
@@ -222,22 +218,31 @@ struct HeartBeatAnimationView: View {
                 }
                 .padding(.bottom, 10)
             }
+            
+            if isHeartReceived {
+                HeartReceivedView(count: heartCount - lastReceivedHeartCount, isPresented: $isHeartReceived)
+            }
         }
         .animation(.easeInOut, value: isEmotionSelectionVisible)
         
         .onAppear {
+            saveUserInfo()
             checkPairingStatus()
             fetchPartnerEmotion()
+            scale = 1.2
+            signInAnonymously()
+            observeHearts()
+            fetchTotalHeartCount()
         }
-        .sheet(isPresented: $isPairingViewPresented) {
+        .fullScreenCover(isPresented:$isPairingViewPresented) {
             PairingView()
         }
         .sheet(isPresented: $isEmotionSelectionViewPresented) {
-            EmotionSelectionView() // 🎭 感情を選択するビューを表示
+            EmotionSelectionView()
         }
-        .sheet(isPresented: $isHeartReceived) {
-            HeartReceivedView(count: heartCount)
-        }
+//        .sheet(isPresented: $isHeartReceived) {
+//            HeartReceivedView(count: heartCount)
+//        }
         .alert(isPresented: $showAlert) {
             Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
@@ -291,9 +296,10 @@ struct HeartBeatAnimationView: View {
         let ref = Database.database().reference()
         ref.child("users").child(myUserID).child("partnerId").observeSingleEvent(of: .value) { snapshot in
             if let partnerID = snapshot.value as? String, !partnerID.isEmpty {
-                isPaired = true // 👈 ペアリング済みならボタンを非表示
+                isPaired = true
             } else {
-                isPaired = false // 👈 ペアリングなしならボタンを表示
+                print("checkPairingStatus")
+                isPaired = false
             }
         }
     }
@@ -358,12 +364,12 @@ struct HeartBeatAnimationView: View {
             let senderID = Auth.auth().currentUser?.uid ?? ""
             let heartRef = ref.child("heartSignals").child(senderID)
             
-            canSendHeart { canSend in
-                guard canSend else {
-                    print("3時間以内のため、送信できません")
-                    showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません")
-                    return
-                }
+//            canSendHeart { canSend in
+//                guard canSend else {
+//                    print("3時間以内のため、送信できません")
+//                    showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません")
+//                    return
+//                }
                 
                 // ハート送信データを更新
                 heartRef.observeSingleEvent(of: .value) { snapshot in
@@ -389,7 +395,7 @@ struct HeartBeatAnimationView: View {
                             print("ハート送信成功")
                         }
                     }
-                }
+//                }
             }
         }
     }
@@ -401,27 +407,33 @@ struct HeartBeatAnimationView: View {
             print("myUserID nil")
             return
         }
-        
-        let ref = Database.database().reference()
-        ref.child("heartSignals").child(myUserID)
-            .observe(.value) { snapshot in
-                if let heartData = snapshot.value as? [String: Any],
-                   let count = heartData["count"] as? Int,
-                   let senderID = heartData["from"] as? String {
-                    
-                    let savedCount = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount")
-                    
-                    // 自分自身が送信したハートなら `isHeartReceived` を `true` にしない
-                    if senderID != myUserID && count > savedCount {
-                        heartCount = count
-                        isHeartReceived = true // 👈 相手からのハートを受け取った時のみモーダルを表示
-                        
-                        // 👇 `UserDefaults` に最新の `count` を保存
-                        UserDefaults.standard.set(count, forKey: "lastReceivedHeartCount")
+
+        getPartnerID { partnerID in
+            guard let partnerID = partnerID else {
+                print("ペアリング相手がいません")
+                return
+            }
+
+            let ref = Database.database().reference()
+            ref.child("heartSignals").child(partnerID)
+                .observe(.value) { snapshot in
+                    if let heartData = snapshot.value as? [String: Any],
+                       let count = heartData["count"] as? Int {
+
+                        let savedCount = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount1")
+                        print("observeHearts - partnerID: \(partnerID), count: \(count), savedCount: \(savedCount)")
+
+                        // 相手が送った新しいハートがあれば更新
+                        if count > savedCount {
+                            heartCount = count
+                            isHeartReceived = true
+                            UserDefaults.standard.set(count, forKey: "lastReceivedHeartCount1")
+                        }
                     }
                 }
-            }
+        }
     }
+
     
     
     func fetchTotalHeartCount() {
@@ -617,84 +629,268 @@ import UIKit
 import CoreImage.CIFilterBuiltins
 
 struct PairingView: View {
-    @State private var searchCode = "O3Af"
-    @State private var searchResults: [String: String] = [:] // userID : name
-    @State private var selectedUserID: String?
     @State private var myPairingCode: String = ""
     @State private var showCopyAlert = false
     @State private var isSharing = false
-    
+    @State private var searchCode = ""
+    @State private var searchResults: [String: String] = [:]
+    @State private var selectedUserID: String?
+    @Environment(\.presentationMode) var presentationMode
+    @State private var showSearchNotFoundAlert = false
+    @State private var showAlert = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
+    @State private var pairingCodeDigits: [String] = ["", "", "", ""]
+    @FocusState private var focusedIndex: Int?
+
     var body: some View {
-        VStack {
-            TextField("相手の名前を入力", text: $searchCode)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-            
-            Button("検索") {
-                searchUserByPairingCode(code: searchCode) { results in
-                    self.searchResults = results
-                }
-            }
-            Text("あなたのペアリングID")
-                .font(.headline)
-                .padding(.top)
-            Text(myPairingCode)
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(.blue)
-                .padding(.bottom, 20)
-            Button(action: {
-                copyToClipboard(myPairingCode) // 👈 クリップボードにコピー
-                showCopyAlert = true
-            }) {
-                Image(systemName: "doc.on.doc") // 📄 アイコン
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 25, height: 25)
+        ZStack{
+            VStack(spacing: 20) {
+                HStack {
+                    Button(action: {
+                        self.presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "chevron.left")
+                        Text("戻る")
+                    }
+                    .fontWeight(.bold)
                     .foregroundColor(.gray)
-            }
-            .alert(isPresented: $showCopyAlert) {
-                Alert(title: Text("コピーしました"), message: Text("ペアリングIDがコピーされました"), dismissButton: .default(Text("OK")))
-            }
-            Button(action: {
-                isSharing = true
-            }) {
-                Label("アプリを共有", systemImage: "square.and.arrow.up")
-                    .font(.title2)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .clipShape(Capsule())
-            }
-            .padding(.bottom, 10)
-            List(searchResults.keys.sorted(), id: \.self) { userID in
+                    .padding(.leading)
+                    Spacer()
+                    Image("ハート1")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                    Spacer()
+                    // レイアウトの対称性を保つために非表示のボタン
+                    Button(action: {
+                        self.presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(Color("fontGray"))
+                        Text("戻る")
+                            .foregroundColor(Color("fontGray"))
+                    }
+                    .padding(.leading)
+                    .opacity(0)
+                }
+                .padding(.top,60)
+                Spacer()
+                // タイトル
+                Text("アプリを共有 🎉")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                Text("ペアリングしたい相手にアプリを共有しよう！")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                
+                // 共有ボタン
                 Button(action: {
-                    selectedUserID = userID
+                    isSharing = true
                 }) {
-                    Text(searchResults[userID] ?? "不明")
+                    Label("アプリを共有", systemImage: "square.and.arrow.up")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(LinearGradient(
+                            gradient: Gradient(colors: [Color.orange, Color.pink]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(radius: 3)
                 }
+                .padding(.horizontal, 20)
+                Spacer()
+                Text("相手がすでにアプリを持っている方は👇")
+                    .font(.system(size: 18))
+                    .fontWeight(.bold)
+                Text("ペアリング相手のIDを入力してください")
+                    .font(.system(size: 16))
+                    .fontWeight(.bold)
+                VStack(spacing: 20) {
+//                    TextField("XXXX", text: $searchCode)
+//                        .textFieldStyle(RoundedBorderTextFieldStyle())
+//                        .padding(.leading, 10)
+//                        .font(.system(size: 24))
+                    HStack(spacing: 20) {
+                        ForEach(0..<4, id: \.self) { index in
+                            TextField("", text: $pairingCodeDigits[index])
+                                .font(.system(size: 28, weight: .bold))
+                                .frame(width: 50, height: 60)
+                                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
+                                .multilineTextAlignment(.center)
+                                .keyboardType(.numberPad)
+                                .focused($focusedIndex, equals: index)
+                                .onChange(of: pairingCodeDigits[index]) { newValue in
+                                    // 🔹 入力は1文字のみ
+                                    if newValue.count > 1 {
+                                        pairingCodeDigits[index] = String(newValue.prefix(1))
+                                    }
+                                    
+                                    // 🔹 次のボックスへ自動移動
+                                    if !newValue.isEmpty && index < 3 {
+                                        focusedIndex = index + 1
+                                    }
+                                    
+                                    // 🔹 4文字揃ったら検索を実行
+                                    let completeCode = pairingCodeDigits.joined()
+                                    if completeCode.count == 4 {
+                                        searchUserByPairingCode(code: completeCode) { results in
+                                            searchResults = results
+                                            if results.isEmpty {
+                                                showAlert(title: "検索結果なし", message: "このペアリングIDは存在しません")
+                                            }
+                                        }
+                                    }
+                                }
+                        }
+                    }
+                    
+                    Button(action: {
+                        searchUserByPairingCode(code: searchCode) { results in
+                            self.searchResults = results
+                            print("self.searchResults   :\(self.searchResults)")
+                        }
+                    }) {
+                        HStack{
+                            Image(systemName: "magnifyingglass")
+                            Text("検索する")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal,10)
+                        .padding(.vertical,8)
+                        .background(Color.gray)
+                        .cornerRadius(10)
+                        .shadow(radius: 3)
+                    }
+                }
+                .padding(.horizontal, 40)
+                Text("あなたのペアリングID")
+                    .font(.system(size: 18))
+                    .fontWeight(.bold)
+                // ペアリングID表示
+                HStack {
+                    Text(myPairingCode)
+                        .font(.system(size: 24))
+                        .fontWeight(.bold)
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 10)
+                    
+                    Button(action: {
+                        copyToClipboard(myPairingCode)
+                        showCopyAlert = true
+                    }) {
+                        Image(systemName: "doc.on.doc")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                Button(action: {
+                    sharePairingID()
+                }) {
+                    Label("ペアリングIDを共有", systemImage: "square.and.arrow.up")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(LinearGradient(
+                            gradient: Gradient(colors: [Color.orange, Color.pink]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(radius: 3)
+                        .padding(.horizontal, 20)
+                }
+                Spacer()
+                Spacer()
             }
-            
-            if let partnerID = selectedUserID {
-                Button("ペアリングする") {
-                    pairWithPartner(partnerID: partnerID)
-                }
-                .padding()
+            if !searchResults.isEmpty {
+                    Color.black.opacity(0.2)
+                        .edgesIgnoringSafeArea(.all)
+                    
+                    ForEach(searchResults.keys.sorted(), id: \.self) { userID in
+                        VStack{
+                            Text("検索がヒットしました🎊")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Text("ペアコード：\(searchResults[userID]!)さん")
+                                .font(.system(size: 24))
+                                .padding(.top, 10)
+                            VStack{
+                                Button(action: {
+                                    pairWithPartner(partnerID: userID)
+                                }) {
+                                    HStack{
+                                        Image(systemName: "heart.fill")
+                                        Text("ペアリングする")
+                                    }
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.vertical,10)
+                                    .frame(maxWidth: .infinity)
+                                    .background(LinearGradient(
+                                        gradient: Gradient(colors: [Color.orange, Color.pink]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                                    .cornerRadius(10)
+                                }
+                                .padding(.top, 10)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(.white)
+                    .cornerRadius(20)
+                    .overlay(
+                        Button(action: {
+                            searchResults = [:]
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .resizable()
+                                .frame(width: 40, height: 40)
+                                .background(Circle().fill(Color.white).frame(width: 30, height: 30))
+                                .foregroundColor(.black)
+                        }.padding(-15),
+                        alignment: .topTrailing // ✅ ここでバツボタンを右上に配置
+                    )
+                    .frame(width:300,height:300)
             }
         }
-        .sheet(isPresented: $isSharing) {
-            ActivityViewController(activityItems: ["一緒にアプリを使おう！\nペアリングID: \(myPairingCode)\nダウンロードはこちら: https://apps.apple.com/app/yourapp-id"])
-        }
+        .background(Color(.systemBackground))
+        .edgesIgnoringSafeArea(.all)
         .onAppear{
             fetchMyPairingCode()
         }
+        .sheet(isPresented: $isSharing) {
+            ActivityViewController(activityItems: ["一緒にもっと楽しい時間を過ごしたい！\nこのアプリなら実現できます👬\nペアリングID: \(myPairingCode)\nダウンロードはこちら: https://apps.apple.com/app/yourapp-id"])
+        }
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+        }
+    }
+    
+    func showAlert(title: String, message: String) {
+        alertTitle = title
+        alertMessage = message
+        showAlert = true
     }
     
     func fetchMyPairingCode() {
-        guard let myUserID = Auth.auth().currentUser?.uid else {
-            return
-        }
-        
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
         let ref = Database.database().reference()
         ref.child("users").child(myUserID).child("pairingCode").observeSingleEvent(of: .value) { snapshot in
             if let code = snapshot.value as? String {
@@ -704,40 +900,25 @@ struct PairingView: View {
             }
         }
     }
-    
-    func copyToClipboard(_ text: String) {
-        UIPasteboard.general.string = text
-    }
-    
-    func searchUserByPairingCode(code: String, completion: @escaping ([String: String]) -> Void) {
-        let ref = Database.database().reference()
+
+    func sharePairingID() {
+        let pairingMessage = "私のペアリングIDはこちら： \(myPairingCode)\nアプリからペアリングしてね☺️\n\nhttps://apps.apple.com/app/yourapp-id"
         
-        ref.child("pairingCodes").child(code).observeSingleEvent(of: .value) { snapshot in
-            var results: [String: String] = [:]
-            
-            if let userID = snapshot.value as? String {
-                ref.child("users").child(userID).observeSingleEvent(of: .value) { userSnapshot in
-                    if let userData = userSnapshot.value as? [String: Any],
-                       let userName = userData["pairingCode"] as? String {
-                        results[userID] = userName
-                        print("results      :\(results)")
-                    }
-                    completion(results)
-                }
-            } else {
-                completion(results) // 検索結果なし
-            }
+        let activityVC = UIActivityViewController(activityItems: [pairingMessage], applicationActivities: nil)
+        
+        if let topVC = UIApplication.shared.windows.first?.rootViewController {
+            topVC.present(activityVC, animated: true, completion: nil)
         }
     }
     
     func pairWithPartner(partnerID: String) {
         guard let myUserID = Auth.auth().currentUser?.uid else { return }
-        
+
         let ref = Database.database().reference()
-        
+
         // 自分の情報に相手の userID を保存
         ref.child("users").child(myUserID).updateChildValues(["partnerId": partnerID])
-        
+
         // 相手の情報にも自分の userID を保存
         ref.child("users").child(partnerID).updateChildValues(["partnerId": myUserID]) { error, _ in
             if let error = error {
@@ -747,53 +928,324 @@ struct PairingView: View {
             }
         }
     }
+
+    func copyToClipboard(_ text: String) {
+        UIPasteboard.general.string = text
+    }
     
-    func searchUserByName(name: String, completion: @escaping ([String: String]) -> Void) {
+    func searchUserByPairingCode(code: String, completion: @escaping ([String: String]) -> Void) {
+        guard let myUserID = Auth.auth().currentUser?.uid else {
+            print("ユーザーがログインしていません")
+            showAlert(title: "エラー", message: "ログインしていません")
+            completion([:])
+            return
+        }
+
         let ref = Database.database().reference()
-        
-        ref.child("users").queryOrdered(byChild: "name").queryEqual(toValue: name)
-            .observeSingleEvent(of: .value) { snapshot in
-                var results: [String: String] = [:] // userID : name の辞書
-                
-                for child in snapshot.children {
-                    if let snap = child as? DataSnapshot,
-                       let userData = snap.value as? [String: Any],
-                       let userID = userData["userID"] as? String,
-                       let userName = userData["name"] as? String {
+
+        ref.child("pairingCodes").child(code).observeSingleEvent(of: .value) { snapshot in
+            var results: [String: String] = [:]
+
+            if let userID = snapshot.value as? String {
+                // 自分自身のペアリングIDを検索した場合はエラー
+                if userID == myUserID {
+                    print("自分のペアリングIDは検索できません")
+                    showAlert(title: "検索エラー", message: "自分のペアリングIDは検索できません")
+                    completion([:])
+                    return
+                }
+
+                ref.child("users").child(userID).observeSingleEvent(of: .value) { userSnapshot in
+                    if let userData = userSnapshot.value as? [String: Any],
+                       let userName = userData["pairingCode"] as? String {
                         results[userID] = userName
                     }
+                    
+                    if results.isEmpty {
+                        DispatchQueue.main.async {
+                            showAlert(title: "検索結果なし", message: "このペアリングIDは存在しません")
+                        }
+                    }
+                    completion(results)
                 }
-                
-                completion(results) // 検索結果を渡す
+            } else {
+                print("検索結果なし")
+                DispatchQueue.main.async {
+                    showAlert(title: "検索結果なし", message: "このペアリングIDは存在しません")
+                }
+                completion([:])
             }
+        }
     }
+
+    
+    func showSearchAlert(title: String, message: String) {
+        alertTitle = title
+        alertMessage = message
+        showSearchNotFoundAlert = true
+    }
+
 }
+
+//struct PairingView: View {
+//    @State private var searchCode = ""
+//    @State private var searchResults: [String: String] = [:] // userID : name
+//    @State private var selectedUserID: String?
+//    @State private var myPairingCode: String = ""
+//    @State private var showCopyAlert = false
+//    @State private var isSharing = false
+//    
+//    var body: some View {
+//        VStack(spacing: 20) {
+//            Text("ペアリング設定")
+//                .font(.title)
+//                .fontWeight(.bold)
+//                .padding(.top, 10)
+//            
+//            VStack(spacing: 10) {
+//                Text("あなたのペアリングID")
+//                    .font(.headline)
+//                    .foregroundColor(.gray)
+//                
+//                HStack {
+//                    Text(myPairingCode)
+//                        .font(.largeTitle)
+//                        .fontWeight(.bold)
+//                        .foregroundColor(.blue)
+//                        .padding(.horizontal, 10)
+//                        .background(Color.white)
+//                        .cornerRadius(10)
+//                    
+//                    Button(action: {
+//                        copyToClipboard(myPairingCode)
+//                        showCopyAlert = true
+//                    }) {
+//                        Image(systemName: "doc.on.doc")
+//                            .resizable()
+//                            .scaledToFit()
+//                            .frame(width: 30, height: 30)
+//                            .foregroundColor(.gray)
+//                    }
+//                }
+//            }
+//            
+//            HStack {
+//                TextField("相手のペアリングIDを入力", text: $searchCode)
+//                    .textFieldStyle(RoundedBorderTextFieldStyle())
+//                    .padding(.leading, 10)
+//                
+//                Button(action: {
+//                    searchUserByPairingCode(code: searchCode) { results in
+//                        self.searchResults = results
+//                    }
+//                }) {
+//                    Image(systemName: "magnifyingglass")
+//                        .foregroundColor(.white)
+//                        .padding()
+//                        .background(Color.blue)
+//                        .clipShape(Circle())
+//                }
+//            }
+//            .padding(.horizontal, 10)
+//            
+//            if !searchResults.isEmpty {
+//                Text("検索結果")
+//                    .font(.headline)
+//                    .padding(.top, 10)
+//                
+//                List(searchResults.keys.sorted(), id: \.self) { userID in
+//                    Button(action: {
+//                        selectedUserID = userID
+//                    }) {
+//                        HStack {
+//                            Text(searchResults[userID] ?? "不明")
+//                                .foregroundColor(.primary)
+//                            Spacer()
+//                            if selectedUserID == userID {
+//                                Image(systemName: "checkmark.circle.fill")
+//                                    .foregroundColor(.blue)
+//                            }
+//                        }
+//                    }
+//                    .padding(.vertical, 5)
+//                }
+//            }
+//            
+//            if let partnerID = selectedUserID {
+//                Button(action: {
+//                    pairWithPartner(partnerID: partnerID)
+//                }) {
+//                    Text("ペアリングする")
+//                        .font(.title2)
+//                        .fontWeight(.bold)
+//                        .foregroundColor(.white)
+//                        .padding()
+//                        .frame(maxWidth: .infinity)
+//                        .background(Color.green)
+//                        .cornerRadius(10)
+//                }
+//                .padding(.horizontal, 20)
+//                .padding(.top, 10)
+//            }
+//            
+//            Button(action: {
+//                isSharing = true
+//            }) {
+//                HStack {
+//                    Image(systemName: "square.and.arrow.up")
+//                    Text("アプリを共有")
+//                }
+//                .font(.title2)
+//                .padding()
+//                .frame(maxWidth: .infinity)
+//                .background(Color.orange)
+//                .foregroundColor(.white)
+//                .clipShape(RoundedRectangle(cornerRadius: 10))
+//            }
+//            .padding(.horizontal, 20)
+//            
+//            Spacer()
+//        }
+//        .padding()
+//        .background(Color(.systemGroupedBackground))
+//        .cornerRadius(15)
+//        .sheet(isPresented: $isSharing) {
+//            ActivityViewController(activityItems: ["一緒にアプリを使おう！\nペアリングID: \(myPairingCode)\nダウンロードはこちら: https://apps.apple.com/app/yourapp-id"])
+//        }
+//        .alert(isPresented: $showCopyAlert) {
+//            Alert(title: Text("コピーしました"), message: Text("ペアリングIDがコピーされました"), dismissButton: .default(Text("OK")))
+//        }
+//        .onAppear {
+//            fetchMyPairingCode()
+//        }
+//    }
+//    
+//    func fetchMyPairingCode() {
+//        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+//        
+//        let ref = Database.database().reference()
+//        ref.child("users").child(myUserID).child("pairingCode").observeSingleEvent(of: .value) { snapshot in
+//            if let code = snapshot.value as? String {
+//                myPairingCode = code
+//            } else {
+//                myPairingCode = "未設定"
+//            }
+//        }
+//    }
+//    
+//    func copyToClipboard(_ text: String) {
+//        UIPasteboard.general.string = text
+//    }
+//    
+//    func searchUserByPairingCode(code: String, completion: @escaping ([String: String]) -> Void) {
+//        let ref = Database.database().reference()
+//        
+//        ref.child("pairingCodes").child(code).observeSingleEvent(of: .value) { snapshot in
+//            var results: [String: String] = [:]
+//            
+//            if let userID = snapshot.value as? String {
+//                ref.child("users").child(userID).observeSingleEvent(of: .value) { userSnapshot in
+//                    if let userData = userSnapshot.value as? [String: Any],
+//                       let userName = userData["pairingCode"] as? String {
+//                        results[userID] = userName
+//                    }
+//                    completion(results)
+//                }
+//            } else {
+//                completion(results) // 検索結果なし
+//            }
+//        }
+//    }
+//    
+//    func pairWithPartner(partnerID: String) {
+//        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+//        
+//        let ref = Database.database().reference()
+//        
+//        // 自分の情報に相手の userID を保存
+//        ref.child("users").child(myUserID).updateChildValues(["partnerId": partnerID])
+//        
+//        // 相手の情報にも自分の userID を保存
+//        ref.child("users").child(partnerID).updateChildValues(["partnerId": myUserID]) { error, _ in
+//            if let error = error {
+//                print("ペアリング失敗: \(error.localizedDescription)")
+//            } else {
+//                print("ペアリング成功")
+//            }
+//        }
+//    }
+//}
+
 
 struct HeartReceivedView: View {
     var count: Int
     @Environment(\.presentationMode) var presentationMode
-    
+    @State private var animateHeart = false
+    @Binding var isPresented: Bool
+
     var body: some View {
-        VStack {
-            Text("💖 ハートが送られてきました！")
-                .font(.title)
-                .padding()
-            
-            Text("合計 \(count) 回受信しました！")
-                .font(.headline)
-                .padding()
-            
-            Button("閉じる") {
-                presentationMode.wrappedValue.dismiss()
+        ZStack {
+            // 🔹 ふんわりピンクのグラデーション背景
+//            LinearGradient(gradient: Gradient(colors: [Color.white,Color.pink.opacity(0.6)]),
+//                           startPoint: .topLeading,
+//                           endPoint: .bottomTrailing)
+            Image("ハート背景")
+                .resizable()
+                .edgesIgnoringSafeArea(.all)
+                .opacity(0.9)
+            VStack(spacing: 20) {
+                Image("ハート1")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 100, height: 100)
+                    .scaleEffect(animateHeart ? 1.2 : 1.0)
+                    .animation(Animation.easeInOut(duration: 1).repeatForever(autoreverses: true), value: animateHeart)
+
+                Text("パートナーからハートが届きました！")
+                    .font(.system(size: 20))
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                Text("あなたのことを想っています")
+                    .font(.system(size: 18))
+
+                // 🔹 受信回数を強調
+                Text("合計 \(count) 回受信されています")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.black)
+                    .padding(.horizontal)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.2))
+                    )
+
+                // 🔹 閉じるボタンをスタイリッシュに
+                Button(action: {
+                    isPresented = false
+                }) {
+                    HStack {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("閉じる")
+                    }
+                    .font(.headline)
+                    .padding()
+                    .frame(width: 150)
+                    .background(Color.white.opacity(0.9))
+                    .foregroundColor(.red)
+                    .clipShape(Capsule())
+                    .shadow(radius: 5)
+                }
+                .padding(.top, 20)
             }
             .padding()
-            .background(Color.red)
-            .foregroundColor(.white)
-            .clipShape(Capsule())
         }
-        .padding()
+        .onAppear {
+            animateHeart = true
+        }
     }
 }
+
 
 import UIKit
 import SwiftUI
@@ -817,5 +1269,7 @@ struct ActivityViewController: UIViewControllerRepresentable {
 
 
 #Preview {
-    HeartBeatAnimationView()
+//    HeartBeatAnimationView()
+    PairingView()
+//    HeartReceivedView(count: 1)
 }
