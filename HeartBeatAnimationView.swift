@@ -15,29 +15,47 @@ struct HeartBeatAnimationView: View {
     @State private var isEmotionSelectionViewPresented = false
     @State private var isHeartReceived = false
     @State private var heartCount: Int = 0
-    @State private var lastReceivedHeartCount: Int = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount1")
+    @State private var lastReceivedHeartCount: Int = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount11")
     @State private var isPaired = false
     @State private var partnerEmotion: String = "happy"
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var isEmotionSelectionVisible = false
-    
+    @State private var isPairingRequestReceived = false
+    @State private var isPairingFlag = false
+    @State private var receivedPartnerID: String = ""
+    @State private var checkedPairingRequest = UserDefaults.standard.bool(forKey: "checkedPairingRequest")
+    @State private var partnerStatus: String = ""
+    @State private var myStatus: String = ""
+    @State private var isStatusSelectionVisible = false
+    @State private var statusHistory: [String] = []
+    @State private var heartImageName: String = "ハート1"
+
     @State private var selectedBackground = "背景2" // 選択中の背景
     
     var backgroundOptions = ["背景1", "背景2", "背景3", "背景4", "背景5", "背景6", "背景7", "背景8"]
     
     
-    var backgroundColor: Color {
+    var backgroundImage: String {
         switch partnerEmotion {
-        case "happy": return Color.yellow.opacity(0.3)
-        case "sad": return Color.blue.opacity(0.3)
-        case "tired": return Color.gray.opacity(0.3)
-        case "needy": return Color.pink.opacity(0.3)
-        default: return Color.white
+        case "happy": return "楽しい"
+        case "sad": return "寂しい"
+        case "normal": return "普通"
+        case "love": return "甘えたい"
+        default: return "普通"
         }
     }
     
+    var partnerEmotionEmoji: String {
+        switch partnerEmotion {
+        case "happy": return "😊"
+        case "sad": return "😭"
+        case "normal": return "😌"
+        case "love": return "🥰"
+        default: return "😌"
+        }
+    }
     
     // ハートのデータモデル
     struct Heart: Identifiable {
@@ -49,222 +67,280 @@ struct HeartBeatAnimationView: View {
     
     var body: some View {
         ZStack {
-            Image(selectedBackground) // 選択した背景を適用
+            Image("\(backgroundImage)") // 選択した背景を適用
                 .resizable()
                 .edgesIgnoringSafeArea(.all)
-            //            backgroundColor.edgesIgnoringSafeArea(.all)
-            // メインのハート
-            //            Image(systemName: "heart.fill")
-            Image("ハート1")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 100, height: 100)
-                .scaleEffect(scale)
-                .scaleEffect(1.0 + CGFloat(heartCount) * 0.01)
-                .animation(
-                    Animation.easeInOut(duration: 1.2)
-                        .repeatForever(autoreverses: true),
-                    value: scale
-                )
-                .shadow(radius: 3)
-                .onTapGesture {
-//                    canSendHeart { canSend in
-//                        if canSend {
-//                            print("test")
-//                            explodeHearts() // ハートアニメーションを実行
-//                            sendHeart() // Firebaseにハート送信
-//                        } else {
-//                            showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません") // アラートを表示
-//                        }
-//                    }
-                    explodeHearts() // ハートアニメーションを実行
-                    sendHeart() // Firebaseにハート送信
-                }
-            // 飛び散る小さなハートたち
-            ForEach(hearts) { heart in
-                Image("ハート1")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 30, height: 30)
-                    .foregroundColor(.pink)
-                    .offset(heart.offset)
-                    .scaleEffect(heart.scale)
-                    .opacity(heart.opacity)
-            }
-            VStack {
-                Spacer()
-                
-                //                Picker("背景を選択", selection: $selectedBackground) {
-                //                    ForEach(backgroundOptions, id: \.self) { background in
-                //                        Text(background)
-                //                    }
-                //                }
-                //                .pickerStyle(MenuPickerStyle())
-                //                .padding()
-                if isPaired {
-                    Button(action: {
-                        isEmotionSelectionVisible = true
-                    }) {
-                        Image("感情")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 40, height: 40)
-                            .foregroundColor(.gray)
+            VStack{
+                HStack{
+                    VStack(spacing:-10){
+                        Text("パートナーの感情")
                             .padding()
-                    }
-                    
-                    .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
-                    .cornerRadius(24)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 30)
-                            .stroke(Color.clear, lineWidth: 1)
-                    )
-                    .shadow(radius: 5)
-                }
-                if !isPaired {
-                    Button(action: {
-                        isPairingViewPresented = true
-                    }) {
-                        HStack {
-                            Image(systemName: "heart.fill")
-                            //                                    .font(.system(size: 20))
-                            Text("ペアリングする")
+                        HStack{
+                            Text("\(partnerEmotionEmoji)")
+                                .font(.system(size: 44))
+                                .padding(.trailing,-60)
+                                .zIndex(1)
+                            Text("\(backgroundImage)")
+                                .font(.system(size: 18))
+                                .padding(.vertical,8)
+                                .padding(.horizontal)
+                                .padding(.leading,30)
+                                .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                                .cornerRadius(24)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 30)
+                                        .stroke(Color.clear, lineWidth: 1)
+                                )
+                                .shadow(radius: 5)
                         }
-                        .font(.system(size: 24))
                     }
-                    .padding()
-                    .background(.white)
-//                    .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
-                    .foregroundColor(.gray)
                     .fontWeight(.bold)
-                    .clipShape(Capsule())
-                    .padding(.bottom, 40)
-                    .shadow(radius: 5)
-                }
-            }
-            if isEmotionSelectionVisible {
-                Color.black.opacity(0.2)
-                    .edgesIgnoringSafeArea(.all)
-                VStack(spacing:-20) {
-                    Spacer()
-                    HStack{
-                        Button(action: { selectEmotion("happy") }) {
-                            Text("×")
-                                .font(.system(size: 40))
-                                .fontWeight(.bold)
-                                .foregroundStyle(Color(.white))
-                                .padding(.bottom,5)
-                        }.padding(.leading,30)
-                            .opacity(0)
-                        Spacer()
-                        Text("いまどんな気持ち？")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(Color(.white))
-                            .padding()
-                        Spacer()
-                        Button(action: { selectEmotion("happy") }) {
-                            Text("×")
-                                .font(.system(size: 40))
-                                .fontWeight(.bold)
-                                .foregroundStyle(Color(.white))
-                                .padding(.bottom,5)
-                        }.padding(.trailing,30)
-                    }
                     
-                    HStack(spacing: 30) {
-                        Button(action: { selectEmotion("happy") }) {
-                            VStack{
-                                Text("😊")
-                                    .font(.system(size: 50))
-                                Text("楽しい")
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(Color(.white))
-                            }
+                    VStack {
+                        Text("パートナーの状態")
+                            .font(.headline)
+                        Text("\(partnerStatus)")
+                            .font(.system(size: 18))
+                            .bold()
+                            .padding(.vertical,8)
+                            .padding(.horizontal)
+                            .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 30)
+                                    .stroke(Color.clear, lineWidth: 1)
+                            )
+                            .shadow(radius: 5)
+                    }
+                    .padding(.top,5)
+                    
+                    
+                }
+                Spacer()
+                ZStack{
+                    
+                // 飛び散る小さなハートたち
+                ForEach(hearts) { heart in
+                    Image(heartImageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 30, height: 30)
+                        .foregroundColor(.pink)
+                        .offset(heart.offset)
+                        .scaleEffect(heart.scale)
+                        .opacity(heart.opacity)
+                }
+                    Image(heartImageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(scale)
+                        .scaleEffect(getHeartScale())
+                        .animation(
+                            Animation.easeInOut(duration: 1.2)
+                                .repeatForever(autoreverses: true),
+                            value: scale
+                        )
+                        .shadow(radius: 3)
+                        .onTapGesture {
+                            //                    canSendHeart { canSend in
+                            //                        if canSend {
+                            //                            print("test")
+                            //                            explodeHearts() // ハートアニメーションを実行
+                            //                            sendHeart() // Firebaseにハート送信
+                            //                        } else {
+                            //                            showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません") // アラートを表示
+                            //                        }
+                            //                    }
+                            explodeHearts() // ハートアニメーションを実行
+                            sendHeart() // Firebaseにハート送信
                         }
-                        Button(action: { selectEmotion("love") }) {
-                            VStack{
-                                Text("🥰")
-                                    .font(.system(size: 50))
-                                Text("甘えたい")
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(Color(.white))
+                }
+                Spacer()
+                VStack {
+                    if isPaired {
+                        HStack{
+                            Button(action: {
+                                isStatusSelectionVisible = true
+                            }) {
+                                Image(systemName:"figure")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 40, height: 40)
+                                    .foregroundColor(.black)
+                                    .padding()
                             }
-                        }
-                        Button(action: { selectEmotion("sad") }) {
-                            VStack{
-                                Text("😭")
-                                    .font(.system(size: 50))
-                                Text("悲しい")
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(Color(.white))
+                            
+                            .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 30)
+                                    .stroke(Color.clear, lineWidth: 1)
+                            )
+                            .shadow(radius: 5)
+                            .padding(.trailing,40)
+                            Button(action: {
+                                isEmotionSelectionVisible = true
+                            }) {
+                                Image("感情")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 40, height: 40)
+                                    .foregroundColor(.gray)
+                                    .padding()
                             }
-                        }
-                        Button(action: { selectEmotion("tired") }) {
-                            VStack{
-                                Text("😮‍💨")
-                                    .font(.system(size: 50))
-                                Text("疲れた")
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(Color(.white))
-                            }
+                            
+                            .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 30)
+                                    .stroke(Color.clear, lineWidth: 1)
+                            )
+                            .shadow(radius: 5)
                         }
                     }
-                    .padding()
-                    //                               .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .shadow(radius: 5)
-                    .transition(.move(edge: .bottom))
+                    if !isPaired {
+                        Button(action: {
+                            isPairingViewPresented = true
+                        }) {
+                            HStack {
+                                Image(systemName: "heart.fill")
+                                Text("ペアリングする")
+                            }
+                            .font(.system(size: 24))
+                        }
+                        .padding()
+                        .background(.white)
+                        .foregroundColor(.gray)
+                        .fontWeight(.bold)
+                        .clipShape(Capsule())
+                        .padding(.bottom, 40)
+                        .shadow(radius: 5)
+                    }
                 }
-                .padding(.bottom, 10)
             }
             
+            if isEmotionSelectionVisible {
+                EmotionSelectionView(isPresented: $isEmotionSelectionVisible)
+            }
             if isHeartReceived {
                 HeartReceivedView(count: heartCount - lastReceivedHeartCount, isPresented: $isHeartReceived)
+            }
+            
+            if isPairingRequestReceived {
+                PairingRequestView(partnerID: receivedPartnerID, isPresented: $isPairingRequestReceived)
+            }
+            
+            if isStatusSelectionVisible {
+                PairingStatusView(isPresented: $isStatusSelectionVisible)
             }
         }
         .animation(.easeInOut, value: isEmotionSelectionVisible)
         
         .onAppear {
-            saveUserInfo()
+//            saveUserInfo()
+            fetchStatusHistory()
             checkPairingStatus()
             fetchPartnerEmotion()
             scale = 1.2
             signInAnonymously()
             observeHearts()
             fetchTotalHeartCount()
+            observePairingRequest()
+            fetchPartnerStatus()
+        }
+        .onChange(of: isPairingRequestReceived) { isPairingRequestReceived in
+            checkPairingStatus()
+        }
+        .onChange(of: isStatusSelectionVisible) { isStatusSelectionVisible in
+            fetchStatusHistory()
         }
         .fullScreenCover(isPresented:$isPairingViewPresented) {
             PairingView()
         }
-        .sheet(isPresented: $isEmotionSelectionViewPresented) {
-            EmotionSelectionView()
-        }
-//        .sheet(isPresented: $isHeartReceived) {
-//            HeartReceivedView(count: heartCount)
-//        }
         .alert(isPresented: $showAlert) {
             Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
     }
     
-    func selectEmotion(_ emotion: String) {
-        partnerEmotion = emotion
-        saveEmotionStatus(emotion: emotion)
-        isEmotionSelectionVisible = false
+    func saveStatus(status: String) {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        let userRef = ref.child("users").child(myUserID)
+
+        userRef.updateChildValues(["status": status]) { error, _ in
+            if let error = error {
+                print("ステータスの保存失敗: \(error.localizedDescription)")
+            } else {
+                print("ステータスの保存成功: \(status)")
+                DispatchQueue.main.async {
+                    alertTitle = "ステータス変更"
+                    alertMessage = "\(status) に変更しました"
+                    showAlert = true
+                }
+            }
+        }
+
+        // 過去のステータス履歴を Firebase に追加（重複を避ける）
+        userRef.child("statusHistory").observeSingleEvent(of: .value) { snapshot in
+            var history = snapshot.value as? [String] ?? []
+
+            if !history.contains(status) {
+                history.append(status)
+                userRef.child("statusHistory").setValue(history)
+            }
+        }
     }
     
-    func saveEmotionStatus(emotion: String) {
+    func observePairingRequest() {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        ref.child("users").child(myUserID).child("partnerId").observe(.value) { snapshot in
+            if let partnerID = snapshot.value as? String, !partnerID.isEmpty {
+                let newPartnerID = String(partnerID.prefix(4)) // 上4桁を取得
+                
+                // 前回のペアリング相手を取得
+                let lastPartnerID = UserDefaults.standard.string(forKey: "lastReceivedPartnerID6") ?? ""
+
+                DispatchQueue.main.async {
+                    if newPartnerID != lastPartnerID {
+                        // パートナーが変わったら通知を出す
+                        isPairingRequestReceived = true
+                        receivedPartnerID = newPartnerID
+                        
+                        // 新しいパートナーIDを保存
+                        UserDefaults.standard.set(newPartnerID, forKey: "lastReceivedPartnerID6")
+                    }
+                }
+            }
+        }
+    }
+
+    func fetchPartnerStatus() {
         guard let myUserID = Auth.auth().currentUser?.uid else { return }
         
         let ref = Database.database().reference()
-        ref.child("users").child(myUserID).updateChildValues(["emotionStatus": emotion]) { error, _ in
-            if let error = error {
-                print("感情の保存失敗: \(error.localizedDescription)")
-            } else {
-                print("感情の保存成功: \(emotion)")
+        ref.child("users").child(myUserID).child("partnerId").observeSingleEvent(of: .value) { snapshot in
+            if let partnerID = snapshot.value as? String {
+                ref.child("users").child(partnerID).child("status").observe(.value) { statusSnapshot in
+                    if let status = statusSnapshot.value as? String {
+                        DispatchQueue.main.async {
+                            self.partnerStatus = status
+                        }
+                    }
+                }
             }
         }
+    }
+    
+    func getHeartScale() -> CGFloat {
+        let maxScaleIncrease: CGFloat = 2.5 // 1.5倍まで拡大
+        let baseScale: CGFloat = 1.0 // 初期スケール
+
+        let progress = CGFloat(heartCount % 100) / 100.0 // 0.0〜1.0の範囲で進行度を計算
+        return baseScale + (maxScaleIncrease - baseScale) * progress
     }
     
     func showAlert(title: String, message: String) {
@@ -298,7 +374,6 @@ struct HeartBeatAnimationView: View {
             if let partnerID = snapshot.value as? String, !partnerID.isEmpty {
                 isPaired = true
             } else {
-                print("checkPairingStatus")
                 isPaired = false
             }
         }
@@ -400,8 +475,6 @@ struct HeartBeatAnimationView: View {
         }
     }
     
-    
-    
     func observeHearts() {
         guard let myUserID = Auth.auth().currentUser?.uid else {
             print("myUserID nil")
@@ -420,26 +493,55 @@ struct HeartBeatAnimationView: View {
                     if let heartData = snapshot.value as? [String: Any],
                        let count = heartData["count"] as? Int {
 
-                        let savedCount = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount1")
+                        let savedCount = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount11")
                         print("observeHearts - partnerID: \(partnerID), count: \(count), savedCount: \(savedCount)")
 
                         // 相手が送った新しいハートがあれば更新
                         if count > savedCount {
                             heartCount = count
                             isHeartReceived = true
-                            UserDefaults.standard.set(count, forKey: "lastReceivedHeartCount1")
+                            UserDefaults.standard.set(count, forKey: "lastReceivedHeartCount11")
                         }
                     }
                 }
         }
     }
 
+    func fetchStatusHistory() {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        ref.child("users").child(myUserID).child("statusHistory").observeSingleEvent(of: .value) { snapshot in
+            if let history = snapshot.value as? [String] {
+                DispatchQueue.main.async {
+                    self.statusHistory = history
+                }
+            }
+        }
+    }
     
+    func getHeartImageName() -> String {
+        switch heartCount {
+        case 0..<100:
+            return "ハート1"
+        case 100..<200:
+            return "ハート2"
+        case 200..<300:
+            return "ハート3"
+        case 300..<400:
+            return "ハート4"
+        case 400...:
+            return "ハート5"
+        default:
+            return "ハート1"
+        }
+    }
     
     func fetchTotalHeartCount() {
         getTotalHeartCount { total in
             DispatchQueue.main.async {
                 self.heartCount = total
+                self.heartImageName = getHeartImageName()
             }
         }
     }
@@ -481,8 +583,6 @@ struct HeartBeatAnimationView: View {
             }
         }
     }
-    
-    
     /// 自分のペアリング相手のIDを取得
     func getPartnerID(completion: @escaping (String?) -> Void) {
         guard let myUserID = Auth.auth().currentUser?.uid else {
@@ -557,7 +657,6 @@ struct HeartBeatAnimationView: View {
         }
     }
     
-    
     func getPairingCode() -> String? {
         guard let userID = Auth.auth().currentUser?.uid else { return nil }
         return String(userID.prefix(4)) // 👈 UIDの上4桁を取得
@@ -565,9 +664,119 @@ struct HeartBeatAnimationView: View {
     
 }
 
-struct EmotionSelectionView: View {
+struct PairingRequestView: View {
+    var partnerID: String
+    @Binding var isPresented: Bool
+    @State private var hearts: [Heart] = [] // 飛び散るハートのリスト
+    @State private var timer: Timer?
+    struct Heart: Identifiable {
+        let id = UUID()
+        var offset: CGSize
+        var scale: CGFloat
+        var opacity: Double
+    }
+
+    var body: some View {
+        ZStack{
+            Image("ハート背景")
+                            .resizable()
+                            .edgesIgnoringSafeArea(.all)
+                            .opacity(0.9)
+            ForEach(hearts) { heart in
+                Image("ハート1")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 30, height: 30)
+                    .foregroundColor(.pink)
+                    .offset(heart.offset)
+                    .scaleEffect(heart.scale)
+                    .opacity(heart.opacity)
+            }
+            VStack {
+
+                ZStack{
+                    Image("ハート1")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
+                    Text("ペアリングしました🎉")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .padding()
+                }
+                Text(" \(partnerID) さんとペアリングしました！")
+                    .font(.system(size: 18))
+                    .padding()
+                
+                Button(action: {
+                    isPresented = false
+                }) {
+                    HStack {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("閉じる")
+                    }
+                    .font(.headline)
+                    .padding()
+                    .frame(width: 150)
+                    .background(Color.white.opacity(0.9))
+                    .foregroundColor(.red)
+                    .clipShape(Capsule())
+                    .shadow(radius: 5)
+                }
+                .padding(.top, 20)
+            }
+        }
+        .onAppear {
+            startHeartExplosionLoop()
+        }
+        .onDisappear {
+            timer?.invalidate() // 画面が閉じられたらタイマーを停止
+        }
+    }
+    
+    func startHeartExplosionLoop() {
+        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            explodeHearts()
+        }
+    }
+    
+    func explodeHearts() {
+        hearts.removeAll() // 既存のハートをクリア
+        
+        for _ in 0..<20 { // 20個のハートを作成
+            let randomX = CGFloat.random(in: -400...400) // ランダムなX座標
+            let randomY = CGFloat.random(in: -400...400) // ランダムなY座標
+            
+            let newHeart = Heart(
+                offset: CGSize(width: 0, height: 0),
+                scale: 1.0,
+                opacity: 1.0
+            )
+            
+            hearts.append(newHeart) // ハートをリストに追加
+            
+            // アニメーションでハートを飛ばす
+            withAnimation(Animation.easeOut(duration: 2.2)) {
+                let index = hearts.count - 1
+                hearts[index].offset = CGSize(width: randomX, height: randomY)
+                hearts[index].scale = 0.5
+                hearts[index].opacity = 0.0
+            }
+        }
+    }
+}
+
+struct PairingStatusView: View {
     @Environment(\.presentationMode) var presentationMode
-    @State private var selectedEmotion: String = "happy"
+    @Binding var isPresented: Bool
+    @State private var selectedEmotion: String = ""
+    @State private var statusHistory: [String] = []
+    @State private var myStatus: String = ""
+    @State private var isStatusSelectionVisible = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
+    @State private var showAlert = false
+    @State private var isHistoryFlag = false
     
     let emotions: [(name: String, label: String)] = [
         ("happy", "嬉しい 😊"),
@@ -577,40 +786,299 @@ struct EmotionSelectionView: View {
     ]
     
     var body: some View {
-        VStack {
-            Text("今の気持ちを選んでね")
-                .font(.headline)
-                .padding()
+        Color.black.opacity(0.2)
+            .edgesIgnoringSafeArea(.all)
+        VStack(spacing:-20) {
+            Spacer()
+            HStack{
+                Button(action: { isPresented = false }) {
+                    Text("×")
+                        .font(.system(size: 40))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(.white))
+                        .padding(.bottom,5)
+                }.padding(.leading,30)
+                    .opacity(0)
+                Spacer()
+                Text("いま何してる？")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(.white))
+                    .padding()
+                Spacer()
+                Button(action: { isPresented = false }) {
+                    Text("×")
+                        .font(.system(size: 40))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(.white))
+                        .padding(.bottom,5)
+                }.padding(.trailing,30)
+            }
             
-            VStack {
-                ForEach(emotions, id: \.name) { emotion in
+            if isHistoryFlag {
+                HStack{
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 10) {
+                            ForEach(statusHistory, id: \.self) { status in
+                                Button(action: {
+                                    myStatus = status
+                                    saveStatus(status: status)
+                                    isStatusSelectionVisible = false
+                                }) {
+                                    Text(status)
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(.black)
+                                        .padding(5)
+                                }
+                                .frame(width: 170)
+                                .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                        }
+                    }
+                .padding(.vertical)
+                HStack(spacing:0){
+                    Spacer()
                     Button(action: {
-                        selectedEmotion = emotion.name
+                        isHistoryFlag = false
                     }) {
-                        Text(emotion.label)
-                            .font(.title2)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(selectedEmotion == emotion.name ? Color.gray.opacity(0.3) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        HStack(spacing:5){
+                            Text("戻る")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.black)
+                            Image(systemName: "return")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.black)
+                        }
+                    }
+                    .padding(5)
+                    .padding(.horizontal,5)
+                    .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .padding(.trailing,5)
+                .padding(.top)
+            } else {
+                HStack(spacing: -20) {
+                    TextField("例: 仕事中", text: $myStatus)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .padding()
+                        .cornerRadius(5)
+                    Button(action: {
+                        saveStatus(status: myStatus)
+                        isStatusSelectionVisible = false
+                    }) {
+                        HStack(spacing: 5){
+                            Image(systemName: "plus")
+                        }
+                        .foregroundColor(.black)
+                        .padding(8)
+                        .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                        .cornerRadius(24)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 30)
+                                .stroke(Color.clear, lineWidth: 1)
+                        )
+                        .shadow(radius: 5)
+                    }
+                    .padding()
+                    .clipShape(Capsule())
+                    Button(action: {
+                        isHistoryFlag = true
+                    }) {
+                        HStack(spacing: 5){
+                            Image(systemName: "clock.arrow.circlepath")
+                            Text("登録履歴")
+                        }
+                        .foregroundColor(.black)
+                        .padding(6)
+                        .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                        .cornerRadius(24)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 30)
+                                .stroke(Color.clear, lineWidth: 1)
+                        )
+                        .shadow(radius: 5)
+                    }
+                    .padding()
+                    .clipShape(Capsule())
+                }
+                HStack{
+                    Text("10文字以内で入力")
+                        .font(.system(size: 18))
+                        .bold()
+                        .foregroundStyle(.white)
+                        .padding(.top, 5)
+                    Spacer()
+                }.padding(.leading)
+            }
+            
+        }
+        .padding()
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(radius: 5)
+        .onAppear {
+            fetchStatusHistory()
+        }
+    }
+    
+    func fetchStatusHistory() {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        ref.child("users").child(myUserID).child("statusHistory").observeSingleEvent(of: .value) { snapshot in
+            if let history = snapshot.value as? [String] {
+                DispatchQueue.main.async {
+                    self.statusHistory = history
+                }
+            }
+        }
+    }
+
+    func saveStatus(status: String) {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        let userRef = ref.child("users").child(myUserID)
+
+        userRef.updateChildValues(["status": status]) { error, _ in
+            if let error = error {
+                print("ステータスの保存失敗: \(error.localizedDescription)")
+            } else {
+                print("ステータスの保存成功: \(status)")
+                DispatchQueue.main.async {
+                    alertTitle = "ステータス変更"
+                    alertMessage = "\(status) に変更しました"
+                    showAlert = true
+                }
+            }
+        }
+
+        // 過去のステータス履歴を Firebase に追加（重複を避ける）
+        userRef.child("statusHistory").observeSingleEvent(of: .value) { snapshot in
+            var history = snapshot.value as? [String] ?? []
+
+            if !history.contains(status) {
+                history.append(status)
+                userRef.child("statusHistory").setValue(history)
+            }
+        }
+    }
+    
+    func selectEmotion(_ emotion: String) {
+        saveEmotionStatus(emotion: emotion)
+        isPresented = false
+    }
+
+    func saveEmotionStatus(emotion: String) {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+        
+        let ref = Database.database().reference()
+        ref.child("users").child(myUserID).updateChildValues(["emotionStatus": emotion]) { error, _ in
+            if let error = error {
+                print("感情の保存失敗: \(error.localizedDescription)")
+            } else {
+                print("感情の保存成功: \(emotion)")
+            }
+        }
+    }
+}
+
+struct EmotionSelectionView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @Binding var isPresented: Bool
+    @State private var selectedEmotion: String = ""
+    
+    let emotions: [(name: String, label: String)] = [
+        ("happy", "嬉しい 😊"),
+        ("sad", "寂しい 😢"),
+        ("tired", "疲れた 😴"),
+        ("needy", "甘えたい 🥺")
+    ]
+    
+    var body: some View {
+        Color.black.opacity(0.2)
+            .edgesIgnoringSafeArea(.all)
+        VStack(spacing:-20) {
+            Spacer()
+            HStack{
+                Button(action: { isPresented = false }) {
+                    Text("×")
+                        .font(.system(size: 40))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(.white))
+                        .padding(.bottom,5)
+                }.padding(.leading,30)
+                    .opacity(0)
+                Spacer()
+                Text("いまどんな気持ち？")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(.white))
+                    .padding()
+                Spacer()
+                Button(action: { isPresented = false }) {
+                    Text("×")
+                        .font(.system(size: 40))
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(.white))
+                        .padding(.bottom,5)
+                }.padding(.trailing,30)
+            }
+            
+            HStack(spacing: 30) {
+                
+                Button(action: { selectEmotion("normal") }) {
+                    VStack{
+                        Text("😌")
+                            .font(.system(size: 50))
+                        Text("普通")
+                            .fontWeight(.bold)
+                            .foregroundStyle(Color(.white))
+                    }
+                }
+                Button(action: { selectEmotion("happy") }) {
+                    VStack{
+                        Text("😊")
+                            .font(.system(size: 50))
+                        Text("楽しい")
+                            .fontWeight(.bold)
+                            .foregroundStyle(Color(.white))
+                    }
+                }
+                Button(action: { selectEmotion("love") }) {
+                    VStack{
+                        Text("🥰")
+                            .font(.system(size: 50))
+                        Text("甘えたい")
+                            .fontWeight(.bold)
+                            .foregroundStyle(Color(.white))
+                    }
+                }
+                Button(action: { selectEmotion("sad") }) {
+                    VStack{
+                        Text("😭")
+                            .font(.system(size: 50))
+                        Text("悲しい")
+                            .fontWeight(.bold)
+                            .foregroundStyle(Color(.white))
                     }
                 }
             }
             .padding()
-            
-            Button("保存") {
-                saveEmotionStatus(emotion: selectedEmotion)
-                presentationMode.wrappedValue.dismiss()
-            }
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .clipShape(Capsule())
+            //                               .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(radius: 5)
+            .transition(.move(edge: .bottom))
         }
-        .padding()
+        .padding(.bottom, 10)
     }
     
-    /// Firebase に `emotionStatus` を保存
+    
+    func selectEmotion(_ emotion: String) {
+        saveEmotionStatus(emotion: emotion)
+        isPresented = false
+    }
+
     func saveEmotionStatus(emotion: String) {
         guard let myUserID = Auth.auth().currentUser?.uid else { return }
         
@@ -638,6 +1106,9 @@ struct PairingView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var showSearchNotFoundAlert = false
     @State private var showAlert = false
+    @State private var isPairingViewPresented = false
+    @State private var isPairingRequestReceived = false
+    @State private var receivedPartnerID: String = ""
     @State private var alertTitle = ""
     @State private var alertMessage = ""
     @State private var pairingCodeDigits: [String] = ["", "", "", ""]
@@ -720,9 +1191,9 @@ struct PairingView: View {
                     HStack(spacing: 20) {
                         ForEach(0..<4, id: \.self) { index in
                             TextField("", text: $pairingCodeDigits[index])
-                                .font(.system(size: 28, weight: .bold))
                                 .frame(width: 50, height: 60)
                                 .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray, lineWidth: 1))
+                                .font(.system(size: 28, weight: .bold))
                                 .multilineTextAlignment(.center)
                                 .keyboardType(.numberPad)
                                 .focused($focusedIndex, equals: index)
@@ -742,59 +1213,82 @@ struct PairingView: View {
                                     if completeCode.count == 4 {
                                         searchUserByPairingCode(code: completeCode) { results in
                                             searchResults = results
-                                            if results.isEmpty {
-                                                showAlert(title: "検索結果なし", message: "このペアリングIDは存在しません")
-                                            }
+//                                            if results.isEmpty {
+//                                                showAlert(title: "検索結果なし", message: "このペアリングIDは存在しません")
+//                                            }
                                         }
                                     }
                                 }
                         }
                     }
-                    
-                    Button(action: {
-                        searchUserByPairingCode(code: searchCode) { results in
-                            self.searchResults = results
-                            print("self.searchResults   :\(self.searchResults)")
+                    HStack(spacing: 20){
+                        Button(action: {
+                            //                        searchUserByPairingCode(code: searchCode) { results in
+                            //                            self.searchResults = results
+                            //                            print("self.searchResults   :\(self.searchResults)")
+                            //                        }
+                            // 🔹 クリップボードからペーストできるようにする
+                            if let pastedText = UIPasteboard.general.string {
+                                handlePaste(pastedText)
+                            }
+                        }) {
+                            HStack{
+                                Image(systemName: "doc.on.clipboard")
+                                Text("ペースト")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal,10)
+                            .padding(.vertical,8)
+                            .background(Color.gray)
+                            .cornerRadius(10)
+                            .shadow(radius: 3)
                         }
-                    }) {
-                        HStack{
-                            Image(systemName: "magnifyingglass")
-                            Text("検索する")
+                        
+                        Button(action: {
+                            pairingCodeDigits = ["", "", "", ""]
+                            focusedIndex = 0
+                        }) {
+                            HStack{
+                                Image(systemName: "trash")
+                                Text("削除")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal,10)
+                            .padding(.vertical,8)
+                            .background(Color.gray)
+                            .cornerRadius(10)
+                            .shadow(radius: 3)
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal,10)
-                        .padding(.vertical,8)
-                        .background(Color.gray)
-                        .cornerRadius(10)
-                        .shadow(radius: 3)
                     }
                 }
                 .padding(.horizontal, 40)
-                Text("あなたのペアリングID")
-                    .font(.system(size: 18))
-                    .fontWeight(.bold)
-                // ペアリングID表示
-                HStack {
-                    Text(myPairingCode)
-                        .font(.system(size: 24))
+                HStack(spacing: 15){
+                    Text("あなたのペアリングID")
+                        .font(.system(size: 20))
                         .fontWeight(.bold)
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 10)
-                    
-                    Button(action: {
-                        copyToClipboard(myPairingCode)
-                        showCopyAlert = true
-                    }) {
-                        Image(systemName: "doc.on.doc")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)
-                            .foregroundColor(.gray)
+                    // ペアリングID表示
+                    HStack {
+                        Text(myPairingCode)
+                            .font(.system(size: 20))
+                            .fontWeight(.bold)
+                            .foregroundColor(.black)
+                        
+                        Button(action: {
+                            copyToClipboard(myPairingCode)
+                            showCopyAlert = true
+                        }) {
+                            Image(systemName: "doc.on.doc")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
+                                .foregroundColor(.gray)
+                        }
                     }
+                    .padding(5)
+                    .padding(.horizontal,8)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 }
-                .padding(10)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 Button(action: {
                     sharePairingID()
                 }) {
@@ -830,6 +1324,7 @@ struct PairingView: View {
                             VStack{
                                 Button(action: {
                                     pairWithPartner(partnerID: userID)
+                                    self.presentationMode.wrappedValue.dismiss()
                                 }) {
                                     HStack{
                                         Image(systemName: "heart.fill")
@@ -871,8 +1366,12 @@ struct PairingView: View {
         }
         .background(Color(.systemBackground))
         .edgesIgnoringSafeArea(.all)
+        .fullScreenCover(isPresented:$isPairingViewPresented) {
+            PairingView()
+        }
         .onAppear{
             fetchMyPairingCode()
+//            observePairingRequest()
         }
         .sheet(isPresented: $isSharing) {
             ActivityViewController(activityItems: ["一緒にもっと楽しい時間を過ごしたい！\nこのアプリなら実現できます👬\nペアリングID: \(myPairingCode)\nダウンロードはこちら: https://apps.apple.com/app/yourapp-id"])
@@ -881,6 +1380,19 @@ struct PairingView: View {
             Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
     }
+    
+    func handlePaste(_ text: String) {
+        let pastedText = text.trimmingCharacters(in: .whitespacesAndNewlines) // 空白を除去
+        
+        // 🔹 4文字なら分割して適用
+        if pastedText.count == 4 {
+            pairingCodeDigits = Array(pastedText).map { String($0) }
+            focusedIndex = nil // 最後の入力ボックスにフォーカスを外す
+        } else {
+            showAlert(title: "ペーストエラー", message: "ペアリングIDは4文字である必要があります")
+        }
+    }
+
     
     func showAlert(title: String, message: String) {
         alertTitle = title
@@ -947,13 +1459,7 @@ struct PairingView: View {
             var results: [String: String] = [:]
 
             if let userID = snapshot.value as? String {
-                // 自分自身のペアリングIDを検索した場合はエラー
-                if userID == myUserID {
-                    print("自分のペアリングIDは検索できません")
-                    showAlert(title: "検索エラー", message: "自分のペアリングIDは検索できません")
-                    completion([:])
-                    return
-                }
+                print("searchUserByPairingCode1")
 
                 ref.child("users").child(userID).observeSingleEvent(of: .value) { userSnapshot in
                     if let userData = userSnapshot.value as? [String: Any],
@@ -962,9 +1468,18 @@ struct PairingView: View {
                     }
                     
                     if results.isEmpty {
+                        print("検索結果なし　アラート")
                         DispatchQueue.main.async {
                             showAlert(title: "検索結果なし", message: "このペアリングIDは存在しません")
                         }
+                    }
+                    
+                    // 自分自身のペアリングIDを検索した場合はエラー
+                    if userID == myUserID {
+                        print("自分のペアリングIDは検索できません")
+                        showAlert(title: "検索エラー", message: "自分のペアリングIDは検索できません")
+                        completion([:])
+                        return
                     }
                     completion(results)
                 }
@@ -1269,7 +1784,8 @@ struct ActivityViewController: UIViewControllerRepresentable {
 
 
 #Preview {
-//    HeartBeatAnimationView()
-    PairingView()
+    HeartBeatAnimationView()
+//    PairingView()
 //    HeartReceivedView(count: 1)
+//    PairingRequestView(partnerID: "test", isPresented: .constant(false))
 }
