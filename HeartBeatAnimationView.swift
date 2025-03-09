@@ -15,9 +15,9 @@ struct HeartBeatAnimationView: View {
     @State private var isEmotionSelectionViewPresented = false
     @State private var isHeartReceived = false
     @State private var heartCount: Int = 0
-    @State private var lastReceivedHeartCount: Int = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount11")
+    @State private var lastReceivedHeartCount: Int = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount13")
     @State private var isPaired = false
-    @State private var partnerEmotion: String = "happy"
+    @State private var partnerEmotion: String = "normal"
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -31,6 +31,27 @@ struct HeartBeatAnimationView: View {
     @State private var isStatusSelectionVisible = false
     @State private var statusHistory: [String] = []
     @State private var heartImageName: String = "ハート1"
+    @State private var receivedHeartCount:Int = 0
+    @State private var tutorialNum:Int = 0
+    @State private var isStartFlag = false
+    
+    @State private var buttonRect: CGRect = .zero
+    @State private var bubbleHeight: CGFloat = 0.0
+    @State private var buttonRect2: CGRect = .zero
+    @State private var bubbleHeight2: CGFloat = 0.0
+    @State private var buttonRect3: CGRect = .zero
+    @State private var bubbleHeight3: CGFloat = 0.0
+    @State private var buttonRect4: CGRect = .zero
+    @State private var bubbleHeight4: CGFloat = 0.0
+    @State private var buttonRect5: CGRect = .zero
+    @State private var bubbleHeight5: CGFloat = 0.0
+    @State private var buttonRect6: CGRect = .zero
+    @State private var bubbleHeight6: CGFloat = 0.0
+    @State private var buttonRect7: CGRect = .zero
+    @State private var bubbleHeight7: CGFloat = 0.0
+    @State private var buttonRect8: CGRect = .zero
+    @State private var bubbleHeight8: CGFloat = 0.0
+    @State private var isLoading = true
 
     @State private var selectedBackground = "背景2" // 選択中の背景
     
@@ -39,7 +60,7 @@ struct HeartBeatAnimationView: View {
     
     var backgroundImage: String {
         switch partnerEmotion {
-        case "happy": return "楽しい"
+        case "happy": return "嬉しい"
         case "sad": return "寂しい"
         case "normal": return "普通"
         case "love": return "甘えたい"
@@ -71,13 +92,28 @@ struct HeartBeatAnimationView: View {
                 .resizable()
                 .edgesIgnoringSafeArea(.all)
             VStack{
-                HStack{
-                    VStack(spacing:-10){
+                HStack(spacing: 30){
+                    Button(action: {
+                        generateHapticFeedback()
+                        tutorialNum = 1
+                    }) {
+                            ZStack{
+                                Circle()
+                                    .foregroundColor(.gray)
+                                    .frame(width: 20)
+                            Image(systemName: "questionmark.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                                .shadow(radius: 5)
+                        }
+                    }
+                    if isPaired {
+                    VStack(spacing:0){
                         Text("パートナーの感情")
-                            .padding()
+                            .font(.system(size: 14))
                         HStack{
                             Text("\(partnerEmotionEmoji)")
-                                .font(.system(size: 44))
+                                .font(.system(size: 40))
                                 .padding(.trailing,-60)
                                 .zIndex(1)
                             Text("\(backgroundImage)")
@@ -95,27 +131,29 @@ struct HeartBeatAnimationView: View {
                         }
                     }
                     .fontWeight(.bold)
-                    
-                    VStack {
-                        Text("パートナーの状態")
-                            .font(.headline)
-                        Text("\(partnerStatus)")
-                            .font(.system(size: 18))
-                            .bold()
-                            .padding(.vertical,8)
-                            .padding(.horizontal)
-                            .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
-                            .cornerRadius(24)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 30)
-                                    .stroke(Color.clear, lineWidth: 1)
-                            )
-                            .shadow(radius: 5)
+                        VStack {
+                            Text("パートナーの状態")
+                                .bold()
+                                .font(.system(size: 14))
+                            Text(partnerStatus == "" ? "-" : "\(partnerStatus)")
+                                .font(.system(size: 18))
+                                .bold()
+                                .padding(.vertical,8)
+                                .padding(.horizontal)
+                                .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                                .cornerRadius(24)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 30)
+                                        .stroke(Color.clear, lineWidth: 1)
+                                )
+                                .shadow(radius: 5)
+                        }
                     }
-                    .padding(.top,5)
-                    
                     
                 }
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: ViewPositionKey5.self, value: [geometry.frame(in: .global)])
+                })
                 Spacer()
                 ZStack{
                     
@@ -142,6 +180,9 @@ struct HeartBeatAnimationView: View {
                             value: scale
                         )
                         .shadow(radius: 3)
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key: ViewPositionKey4.self, value: [geometry.frame(in: .global)])
+                        })
                         .onTapGesture {
                             //                    canSendHeart { canSend in
                             //                        if canSend {
@@ -152,6 +193,10 @@ struct HeartBeatAnimationView: View {
                             //                            showAlert(title: "送信できません", message: "ハートは3時間に1回しか送れません") // アラートを表示
                             //                        }
                             //                    }
+                            if tutorialNum == 6 {
+                                tutorialNum = 7
+                            }
+                            generateHapticFeedback()
                             explodeHearts() // ハートアニメーションを実行
                             sendHeart() // Firebaseにハート送信
                         }
@@ -161,6 +206,7 @@ struct HeartBeatAnimationView: View {
                     if isPaired {
                         HStack{
                             Button(action: {
+                                generateHapticFeedback()
                                 isStatusSelectionVisible = true
                             }) {
                                 Image(systemName:"figure")
@@ -180,6 +226,7 @@ struct HeartBeatAnimationView: View {
                             .shadow(radius: 5)
                             .padding(.trailing,40)
                             Button(action: {
+                                generateHapticFeedback()
                                 isEmotionSelectionVisible = true
                             }) {
                                 Image("感情")
@@ -198,9 +245,14 @@ struct HeartBeatAnimationView: View {
                             )
                             .shadow(radius: 5)
                         }
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key: ViewPositionKey6.self, value: [geometry.frame(in: .global)])
+                        })
+                        .padding(.bottom)
                     }
                     if !isPaired {
                         Button(action: {
+                            generateHapticFeedback()
                             isPairingViewPresented = true
                         }) {
                             HStack {
@@ -214,6 +266,9 @@ struct HeartBeatAnimationView: View {
                         .foregroundColor(.gray)
                         .fontWeight(.bold)
                         .clipShape(Capsule())
+                        .background(GeometryReader { geometry in
+                            Color.clear.preference(key: ViewPositionKey.self, value: [geometry.frame(in: .global)])
+                        })
                         .padding(.bottom, 40)
                         .shadow(radius: 5)
                     }
@@ -224,44 +279,144 @@ struct HeartBeatAnimationView: View {
                 EmotionSelectionView(isPresented: $isEmotionSelectionVisible)
             }
             if isHeartReceived {
-                HeartReceivedView(count: heartCount - lastReceivedHeartCount, isPresented: $isHeartReceived)
+                HeartReceivedView(count: receivedHeartCount, isPresented: $isHeartReceived)
             }
             
             if isPairingRequestReceived {
-                PairingRequestView(partnerID: receivedPartnerID, isPresented: $isPairingRequestReceived)
+                PairingRequestView(partnerID: receivedPartnerID, isPresented: $isPairingRequestReceived, tutorialNum: $tutorialNum)
             }
             
             if isStatusSelectionVisible {
                 PairingStatusView(isPresented: $isStatusSelectionVisible)
             }
+            
+            if isPairingViewPresented {
+                PairingView(isPresented: $isPairingViewPresented, buttonRect2: $buttonRect2,
+                            bubbleHeight2: $bubbleHeight2,
+                            buttonRect3: $buttonRect3,
+                            bubbleHeight3: $bubbleHeight3)
+            }
+        
+            TutorialView(
+                            tutorialNum: $tutorialNum,
+                            buttonRect: $buttonRect,
+                            bubbleHeight: $bubbleHeight,
+                            buttonRect2: $buttonRect2,
+                            bubbleHeight2: $bubbleHeight2,
+                            buttonRect3: $buttonRect3,
+                            bubbleHeight3: $bubbleHeight3,
+                            buttonRect4: $buttonRect4,
+                            bubbleHeight4: $bubbleHeight4,
+                            buttonRect5: $buttonRect5,
+                            bubbleHeight5: $bubbleHeight5,
+                            buttonRect6: $buttonRect6,
+                            bubbleHeight6: $bubbleHeight6,
+                            buttonRect7: $buttonRect7,
+                            bubbleHeight7: $bubbleHeight7,
+                            buttonRect8: $buttonRect8,
+                            bubbleHeight8: $bubbleHeight8
+                        )
+            
         }
         .animation(.easeInOut, value: isEmotionSelectionVisible)
-        
-        .onAppear {
-//            saveUserInfo()
-            fetchStatusHistory()
-            checkPairingStatus()
-            fetchPartnerEmotion()
-            scale = 1.2
-            signInAnonymously()
-            observeHearts()
-            fetchTotalHeartCount()
-            observePairingRequest()
-            fetchPartnerStatus()
+        .animation(.easeInOut, value: isStatusSelectionVisible)
+        .onPreferenceChange(ViewPositionKey.self) { positions in
+            self.buttonRect = positions.first ?? .zero
         }
+        .onPreferenceChange(ViewPositionKey4.self) { positions in
+            self.buttonRect4 = positions.first ?? .zero
+        }
+        .onPreferenceChange(ViewPositionKey5.self) { positions in
+            self.buttonRect5 = positions.first ?? .zero
+        }
+        .onPreferenceChange(ViewPositionKey6.self) { positions in
+            self.buttonRect6 = positions.first ?? .zero
+        }
+        .onAppear {
+            let userDefaults = UserDefaults.standard
+            if !userDefaults.bool(forKey: "hasLaunchedTorialFlagOnappear") {
+                saveUserInfo()
+                tutorialNum = 1
+            }
+            userDefaults.set(true, forKey: "hasLaunchedTorialFlagOnappear")
+            userDefaults.synchronize()
+            
+            isLoading = true // 🔹 ローディング開始
+            
+            let dispatchGroup = DispatchGroup()
+            
+            dispatchGroup.enter()
+            fetchStatusHistory { dispatchGroup.leave() }
+
+            dispatchGroup.enter()
+            checkPairingStatus { dispatchGroup.leave() }
+
+            dispatchGroup.enter()
+            fetchPartnerEmotion { dispatchGroup.leave() }
+
+            dispatchGroup.enter()
+            fetchTotalHeartCount { dispatchGroup.leave() }
+
+            dispatchGroup.enter()
+            observePairingRequest { dispatchGroup.leave() }
+
+            dispatchGroup.enter()
+            fetchPartnerStatus { dispatchGroup.leave() }
+
+            dispatchGroup.notify(queue: .main) {
+                isLoading = false // 🔹 すべてのデータ取得完了
+            }
+        }
+
         .onChange(of: isPairingRequestReceived) { isPairingRequestReceived in
             checkPairingStatus()
         }
         .onChange(of: isStatusSelectionVisible) { isStatusSelectionVisible in
-            fetchStatusHistory()
+            fetchStatusHistory(completion: <#() -> Void#>)
         }
-        .fullScreenCover(isPresented:$isPairingViewPresented) {
-            PairingView()
+
+        .fullScreenCover(isPresented:$isStartFlag) {
+            StartView()
         }
         .alert(isPresented: $showAlert) {
             Alert(title: Text(alertTitle), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
     }
+    
+    func sendLocalNotification(message: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "💖 新しいハート"
+        content.body = message
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("通知エラー: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func observeNotifications() {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference().child("users").child(myUserID).child("notifications")
+
+        ref.observe(.childAdded) { snapshot in
+            if let notificationData = snapshot.value as? [String: Any],
+               let message = notificationData["message"] as? String {
+                
+                // 🔹 ローカル通知を送信
+                sendLocalNotification(message: message)
+
+                // 🔹 通知を Firebase から削除（履歴管理する場合は不要）
+                snapshot.ref.removeValue()
+            }
+        }
+    }
+
     
     func saveStatus(status: String) {
         guard let myUserID = Auth.auth().currentUser?.uid else { return }
@@ -302,7 +457,7 @@ struct HeartBeatAnimationView: View {
                 let newPartnerID = String(partnerID.prefix(4)) // 上4桁を取得
                 
                 // 前回のペアリング相手を取得
-                let lastPartnerID = UserDefaults.standard.string(forKey: "lastReceivedPartnerID6") ?? ""
+                let lastPartnerID = UserDefaults.standard.string(forKey: "lastReceivedPartnerID7") ?? ""
 
                 DispatchQueue.main.async {
                     if newPartnerID != lastPartnerID {
@@ -311,7 +466,7 @@ struct HeartBeatAnimationView: View {
                         receivedPartnerID = newPartnerID
                         
                         // 新しいパートナーIDを保存
-                        UserDefaults.standard.set(newPartnerID, forKey: "lastReceivedPartnerID6")
+                        UserDefaults.standard.set(newPartnerID, forKey: "lastReceivedPartnerID7")
                     }
                 }
             }
@@ -374,7 +529,8 @@ struct HeartBeatAnimationView: View {
             if let partnerID = snapshot.value as? String, !partnerID.isEmpty {
                 isPaired = true
             } else {
-                isPaired = false
+//                isPaired = false
+                isPaired = true
             }
         }
     }
@@ -463,6 +619,8 @@ struct HeartBeatAnimationView: View {
                         "lastSentTimestamp": currentTime // 🔥 最後に送信した時間を記録
                     ]
                     
+                    ref.child("users").child(partnerID).child("notifications").childByAutoId().setValue(heartData)
+                    
                     heartRef.setValue(heartData) { error, _ in
                         if let error = error {
                             print("ハート送信失敗: \(error.localizedDescription)")
@@ -493,22 +651,24 @@ struct HeartBeatAnimationView: View {
                     if let heartData = snapshot.value as? [String: Any],
                        let count = heartData["count"] as? Int {
 
-                        let savedCount = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount11")
-                        print("observeHearts - partnerID: \(partnerID), count: \(count), savedCount: \(savedCount)")
+                        let savedCount = UserDefaults.standard.integer(forKey: "lastReceivedHeartCount16")
 
                         // 相手が送った新しいハートがあれば更新
                         if count > savedCount {
-                            heartCount = count
+                            receivedHeartCount = count - savedCount
                             isHeartReceived = true
-                            UserDefaults.standard.set(count, forKey: "lastReceivedHeartCount11")
+                            UserDefaults.standard.set(count, forKey: "lastReceivedHeartCount16")
                         }
                     }
                 }
         }
     }
 
-    func fetchStatusHistory() {
-        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+    func fetchStatusHistory(completion: @escaping () -> Void) {
+        guard let myUserID = Auth.auth().currentUser?.uid else {
+            completion() // 🔹 ユーザーIDが取得できない場合も完了通知
+            return
+        }
 
         let ref = Database.database().reference()
         ref.child("users").child(myUserID).child("statusHistory").observeSingleEvent(of: .value) { snapshot in
@@ -517,8 +677,10 @@ struct HeartBeatAnimationView: View {
                     self.statusHistory = history
                 }
             }
+            completion() // 🔹 データ取得完了時に呼び出し
         }
     }
+
     
     func getHeartImageName() -> String {
         switch heartCount {
@@ -667,6 +829,7 @@ struct HeartBeatAnimationView: View {
 struct PairingRequestView: View {
     var partnerID: String
     @Binding var isPresented: Bool
+    @Binding var tutorialNum: Int
     @State private var hearts: [Heart] = [] // 飛び散るハートのリスト
     @State private var timer: Timer?
     struct Heart: Identifiable {
@@ -709,6 +872,13 @@ struct PairingRequestView: View {
                     .padding()
                 
                 Button(action: {
+                    generateHapticFeedback()
+                    let userDefaults = UserDefaults.standard
+                    if !userDefaults.bool(forKey: "hasLaunchedTutorial4Onappear") {
+                        tutorialNum = 5
+                    }
+                    userDefaults.set(true, forKey: "hasLaunchedTutorial4Onappear")
+                    userDefaults.synchronize()
                     isPresented = false
                 }) {
                     HStack {
@@ -777,6 +947,7 @@ struct PairingStatusView: View {
     @State private var alertMessage = ""
     @State private var showAlert = false
     @State private var isHistoryFlag = false
+    @State private var tutorialFlag: Bool = false
     
     let emotions: [(name: String, label: String)] = [
         ("happy", "嬉しい 😊"),
@@ -789,16 +960,32 @@ struct PairingStatusView: View {
         Color.black.opacity(0.2)
             .edgesIgnoringSafeArea(.all)
         VStack(spacing:-20) {
+            if tutorialFlag {
+                Spacer()
+                VStack(spacing:20){
+                    Image("チュートリアルステータス")
+                        .resizable()
+                        .scaledToFit()
+                    Text("登録したあなたのステータスは\nペアリング相手の画面に表示されます")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color(.white))
+                        .fontWeight(.bold)
+                }
+            }
             Spacer()
             HStack{
-                Button(action: { isPresented = false }) {
-                    Text("×")
-                        .font(.system(size: 40))
-                        .fontWeight(.bold)
-                        .foregroundStyle(Color(.white))
-                        .padding(.bottom,5)
+                Button(action: {
+                    generateHapticFeedback()
+                    tutorialFlag.toggle() }) {
+                        ZStack{
+                            Circle()
+                                .foregroundColor(.gray)
+                                .frame(width: 20)
+                        Image(systemName: "questionmark.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                    }
                 }.padding(.leading,30)
-                    .opacity(0)
                 Spacer()
                 Text("いま何してる？")
                     .font(.title2)
@@ -806,7 +993,8 @@ struct PairingStatusView: View {
                     .foregroundStyle(Color(.white))
                     .padding()
                 Spacer()
-                Button(action: { isPresented = false }) {
+                Button(action: { generateHapticFeedback()
+                    isPresented = false }) {
                     Text("×")
                         .font(.system(size: 40))
                         .fontWeight(.bold)
@@ -820,6 +1008,7 @@ struct PairingStatusView: View {
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 10) {
                             ForEach(statusHistory, id: \.self) { status in
                                 Button(action: {
+                                    generateHapticFeedback()
                                     myStatus = status
                                     saveStatus(status: status)
                                     isStatusSelectionVisible = false
@@ -839,13 +1028,14 @@ struct PairingStatusView: View {
                 HStack(spacing:0){
                     Spacer()
                     Button(action: {
+                        generateHapticFeedback()
                         isHistoryFlag = false
                     }) {
                         HStack(spacing:5){
                             Text("戻る")
                                 .font(.system(size: 18))
                                 .foregroundStyle(.black)
-                            Image(systemName: "return")
+                            Image(systemName: "chevron.forward")
                                 .font(.system(size: 18))
                                 .foregroundStyle(.black)
                         }
@@ -864,6 +1054,7 @@ struct PairingStatusView: View {
                         .padding()
                         .cornerRadius(5)
                     Button(action: {
+                        generateHapticFeedback()
                         saveStatus(status: myStatus)
                         isStatusSelectionVisible = false
                     }) {
@@ -883,6 +1074,7 @@ struct PairingStatusView: View {
                     .padding()
                     .clipShape(Capsule())
                     Button(action: {
+                        generateHapticFeedback()
                         isHistoryFlag = true
                     }) {
                         HStack(spacing: 5){
@@ -916,10 +1108,33 @@ struct PairingStatusView: View {
         .padding()
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(radius: 5)
+        .animation(.easeInOut, value: isHistoryFlag)
+        .animation(.easeInOut, value: tutorialFlag)
         .onAppear {
+            let userDefaults = UserDefaults.standard
+            if !userDefaults.bool(forKey: "hasLaunchedtuStatusTorialFlagOnappear") {
+                tutorialFlag = true
+            }
+            userDefaults.set(true, forKey: "hasLaunchedStatusTutorialFlagOnappear")
+            userDefaults.synchronize()
             fetchStatusHistory()
+            fetchMyStatus()
         }
     }
+    
+    func fetchMyStatus() {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        ref.child("users").child(myUserID).child("status").observe(.value) { snapshot in
+            if let status = snapshot.value as? String {
+                DispatchQueue.main.async {
+                    self.myStatus = status
+                }
+            }
+        }
+    }
+
     
     func fetchStatusHistory() {
         guard let myUserID = Auth.auth().currentUser?.uid else { return }
@@ -987,6 +1202,8 @@ struct EmotionSelectionView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var isPresented: Bool
     @State private var selectedEmotion: String = ""
+    @State private var tutorialFlag: Bool = false
+    @State private var myEmotion: String = "normal"
     
     let emotions: [(name: String, label: String)] = [
         ("happy", "嬉しい 😊"),
@@ -999,16 +1216,32 @@ struct EmotionSelectionView: View {
         Color.black.opacity(0.2)
             .edgesIgnoringSafeArea(.all)
         VStack(spacing:-20) {
+            if tutorialFlag {
+                VStack(spacing:-10){
+                    Image("チュートリアル感情")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: isSmallDevice() ? 380 : 480)
+                    Text("選んだ感情によって\nペアリング相手の背景が変わります")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color(.white))
+                        .fontWeight(.bold)
+                }
+            }
             Spacer()
             HStack{
-                Button(action: { isPresented = false }) {
-                    Text("×")
-                        .font(.system(size: 40))
-                        .fontWeight(.bold)
-                        .foregroundStyle(Color(.white))
-                        .padding(.bottom,5)
+                Button(action: { 
+                    generateHapticFeedback()
+                    tutorialFlag.toggle() }) {
+                        ZStack{
+                            Circle()
+                                .foregroundColor(.gray)
+                                .frame(width: 20)
+                        Image(systemName: "questionmark.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                    }
                 }.padding(.leading,30)
-                    .opacity(0)
                 Spacer()
                 Text("いまどんな気持ち？")
                     .font(.title2)
@@ -1016,7 +1249,9 @@ struct EmotionSelectionView: View {
                     .foregroundStyle(Color(.white))
                     .padding()
                 Spacer()
-                Button(action: { isPresented = false }) {
+                Button(action: { 
+                    generateHapticFeedback()
+                    isPresented = false }) {
                     Text("×")
                         .font(.system(size: 40))
                         .fontWeight(.bold)
@@ -1024,10 +1259,43 @@ struct EmotionSelectionView: View {
                         .padding(.bottom,5)
                 }.padding(.trailing,30)
             }
-            
+            HStack{
+                Text("↓ タップしてね ↓")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(.white))
+                    .padding(.top)
+                VStack(spacing:-15){
+                    Text("あなたの感情")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white)
+                        .padding()
+                    HStack{
+                        Text(getEmotionEmoji(emotion: myEmotion)) // 🔹 自分の感情の絵文字
+                            .font(.system(size: 34))
+                            .padding(.trailing,-60)
+                            .zIndex(1)
+                        Text(getEmotionText(emotion: myEmotion)) // 🔹 自分の感情のテキスト
+                            .font(.system(size: 14))
+                            .padding(.vertical,8)
+                            .padding(.horizontal)
+                            .padding(.leading,20)
+                            .background(Color(hue: 1.0, saturation: 0.098, brightness: 0.992))
+                            .cornerRadius(24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 30)
+                                    .stroke(Color.clear, lineWidth: 1)
+                            )
+                            .shadow(radius: 5)
+                    }
+                }
+                .fontWeight(.bold)
+            }
+
             HStack(spacing: 30) {
                 
-                Button(action: { selectEmotion("normal") }) {
+                Button(action: { generateHapticFeedback()
+                    selectEmotion("normal") }) {
                     VStack{
                         Text("😌")
                             .font(.system(size: 50))
@@ -1036,16 +1304,18 @@ struct EmotionSelectionView: View {
                             .foregroundStyle(Color(.white))
                     }
                 }
-                Button(action: { selectEmotion("happy") }) {
+                Button(action: { generateHapticFeedback()
+                    selectEmotion("happy") }) {
                     VStack{
                         Text("😊")
                             .font(.system(size: 50))
-                        Text("楽しい")
+                        Text("嬉しい")
                             .fontWeight(.bold)
                             .foregroundStyle(Color(.white))
                     }
                 }
-                Button(action: { selectEmotion("love") }) {
+                Button(action: { generateHapticFeedback()
+                    selectEmotion("love") }) {
                     VStack{
                         Text("🥰")
                             .font(.system(size: 50))
@@ -1054,7 +1324,8 @@ struct EmotionSelectionView: View {
                             .foregroundStyle(Color(.white))
                     }
                 }
-                Button(action: { selectEmotion("sad") }) {
+                Button(action: { generateHapticFeedback()
+                    selectEmotion("sad") }) {
                     VStack{
                         Text("😭")
                             .font(.system(size: 50))
@@ -1071,8 +1342,30 @@ struct EmotionSelectionView: View {
             .transition(.move(edge: .bottom))
         }
         .padding(.bottom, 10)
+        .animation(.easeInOut, value: tutorialFlag)
+            .onAppear {
+                let userDefaults = UserDefaults.standard
+                if !userDefaults.bool(forKey: "hasLaunchedEmotionTorialFlagOnappear") {
+                    tutorialFlag = true
+                }
+                userDefaults.set(true, forKey: "hasLaunchedEmotionTorialFlagOnappear")
+                userDefaults.synchronize()
+                fetchMyEmotion()
+            }
     }
     
+    func fetchMyEmotion() {
+        guard let myUserID = Auth.auth().currentUser?.uid else { return }
+
+        let ref = Database.database().reference()
+        ref.child("users").child(myUserID).child("emotionStatus").observe(.value) { snapshot in
+            if let emotion = snapshot.value as? String {
+                DispatchQueue.main.async {
+                    self.myEmotion = emotion
+                }
+            }
+        }
+    }
     
     func selectEmotion(_ emotion: String) {
         saveEmotionStatus(emotion: emotion)
@@ -1091,12 +1384,34 @@ struct EmotionSelectionView: View {
             }
         }
     }
+    
+    func getEmotionEmoji(emotion: String) -> String {
+        switch emotion {
+        case "happy": return "😊"
+        case "sad": return "😭"
+        case "normal": return "😌"
+        case "love": return "🥰"
+        default: return "😌"
+        }
+    }
+
+    func getEmotionText(emotion: String) -> String {
+        switch emotion {
+        case "happy": return "嬉しい"
+        case "sad": return "寂しい"
+        case "normal": return "普通"
+        case "love": return "甘えたい"
+        default: return "普通"
+        }
+    }
+
 }
 
 import UIKit
 import CoreImage.CIFilterBuiltins
 
 struct PairingView: View {
+    @Binding var isPresented: Bool
     @State private var myPairingCode: String = ""
     @State private var showCopyAlert = false
     @State private var isSharing = false
@@ -1113,13 +1428,18 @@ struct PairingView: View {
     @State private var alertMessage = ""
     @State private var pairingCodeDigits: [String] = ["", "", "", ""]
     @FocusState private var focusedIndex: Int?
+    @State private var showTutorial = false
+    @Binding var buttonRect2: CGRect
+    @Binding var bubbleHeight2: CGFloat
+    @Binding var buttonRect3: CGRect
+    @Binding var bubbleHeight3: CGFloat
 
     var body: some View {
         ZStack{
-            VStack(spacing: 20) {
+            VStack {
                 HStack {
                     Button(action: {
-                        self.presentationMode.wrappedValue.dismiss()
+                        isPresented = false
                     }) {
                         Image(systemName: "chevron.left")
                         Text("戻る")
@@ -1135,7 +1455,8 @@ struct PairingView: View {
                     Spacer()
                     // レイアウトの対称性を保つために非表示のボタン
                     Button(action: {
-                        self.presentationMode.wrappedValue.dismiss()
+                        generateHapticFeedback()
+                        isPresented = false
                     }) {
                         Image(systemName: "chevron.left")
                             .foregroundColor(Color("fontGray"))
@@ -1145,7 +1466,6 @@ struct PairingView: View {
                     .padding(.leading)
                     .opacity(0)
                 }
-                .padding(.top,60)
                 Spacer()
                 // タイトル
                 Text("アプリを共有 🎉")
@@ -1160,7 +1480,15 @@ struct PairingView: View {
                 
                 // 共有ボタン
                 Button(action: {
-                    isSharing = true
+                    generateHapticFeedback()
+                    let userDefaults = UserDefaults.standard
+                    if !userDefaults.bool(forKey: "hasLaunchedTutorialOnappear") {
+                        showTutorial = true
+                    } else {
+                        isSharing = true
+                    }
+                    userDefaults.set(true, forKey: "hasLaunchedTutorialOnappear")
+                    userDefaults.synchronize()
                 }) {
                     Label("アプリを共有", systemImage: "square.and.arrow.up")
                         .font(.headline)
@@ -1175,7 +1503,16 @@ struct PairingView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .shadow(radius: 3)
                 }
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: ViewPositionKey2.self, value: [geometry.frame(in: .global)])
+                })
                 .padding(.horizontal, 20)
+                Button(action: {
+                    showTutorial = true
+                }) {
+                    Text("LINEで簡単にアプリを共有する方法")
+                        .foregroundStyle(.blue)
+                }
                 Spacer()
                 Text("相手がすでにアプリを持っている方は👇")
                     .font(.system(size: 18))
@@ -1221,12 +1558,16 @@ struct PairingView: View {
                                 }
                         }
                     }
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: ViewPositionKey3.self, value: [geometry.frame(in: .global)])
+                    })
                     HStack(spacing: 20){
                         Button(action: {
                             //                        searchUserByPairingCode(code: searchCode) { results in
                             //                            self.searchResults = results
                             //                            print("self.searchResults   :\(self.searchResults)")
                             //                        }
+                            generateHapticFeedback()
                             // 🔹 クリップボードからペーストできるようにする
                             if let pastedText = UIPasteboard.general.string {
                                 handlePaste(pastedText)
@@ -1245,6 +1586,7 @@ struct PairingView: View {
                         }
                         
                         Button(action: {
+                            generateHapticFeedback()
                             pairingCodeDigits = ["", "", "", ""]
                             focusedIndex = 0
                         }) {
@@ -1274,6 +1616,7 @@ struct PairingView: View {
                             .foregroundColor(.black)
                         
                         Button(action: {
+                            generateHapticFeedback()
                             copyToClipboard(myPairingCode)
                             showCopyAlert = true
                         }) {
@@ -1290,6 +1633,7 @@ struct PairingView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                 }
                 Button(action: {
+                    generateHapticFeedback()
                     sharePairingID()
                 }) {
                     Label("ペアリングIDを共有", systemImage: "square.and.arrow.up")
@@ -1307,7 +1651,9 @@ struct PairingView: View {
                         .padding(.horizontal, 20)
                 }
                 Spacer()
-                Spacer()
+            }
+            if showTutorial {
+                ShareTutorialView(isPresented: $showTutorial, showTutorial: $isSharing)
             }
             if !searchResults.isEmpty {
                     Color.black.opacity(0.2)
@@ -1323,8 +1669,9 @@ struct PairingView: View {
                                 .padding(.top, 10)
                             VStack{
                                 Button(action: {
+                                    generateHapticFeedback()
                                     pairWithPartner(partnerID: userID)
-                                    self.presentationMode.wrappedValue.dismiss()
+                                    isPresented = false
                                 }) {
                                     HStack{
                                         Image(systemName: "heart.fill")
@@ -1351,6 +1698,7 @@ struct PairingView: View {
                     .cornerRadius(20)
                     .overlay(
                         Button(action: {
+                            generateHapticFeedback()
                             searchResults = [:]
                         }) {
                             Image(systemName: "xmark.circle.fill")
@@ -1365,9 +1713,11 @@ struct PairingView: View {
             }
         }
         .background(Color(.systemBackground))
-        .edgesIgnoringSafeArea(.all)
-        .fullScreenCover(isPresented:$isPairingViewPresented) {
-            PairingView()
+        .onPreferenceChange(ViewPositionKey2.self) { positions in
+            self.buttonRect2 = positions.first ?? .zero
+        }
+        .onPreferenceChange(ViewPositionKey3.self) { positions in
+            self.buttonRect3 = positions.first ?? .zero
         }
         .onAppear{
             fetchMyPairingCode()
@@ -1502,196 +1852,6 @@ struct PairingView: View {
 
 }
 
-//struct PairingView: View {
-//    @State private var searchCode = ""
-//    @State private var searchResults: [String: String] = [:] // userID : name
-//    @State private var selectedUserID: String?
-//    @State private var myPairingCode: String = ""
-//    @State private var showCopyAlert = false
-//    @State private var isSharing = false
-//    
-//    var body: some View {
-//        VStack(spacing: 20) {
-//            Text("ペアリング設定")
-//                .font(.title)
-//                .fontWeight(.bold)
-//                .padding(.top, 10)
-//            
-//            VStack(spacing: 10) {
-//                Text("あなたのペアリングID")
-//                    .font(.headline)
-//                    .foregroundColor(.gray)
-//                
-//                HStack {
-//                    Text(myPairingCode)
-//                        .font(.largeTitle)
-//                        .fontWeight(.bold)
-//                        .foregroundColor(.blue)
-//                        .padding(.horizontal, 10)
-//                        .background(Color.white)
-//                        .cornerRadius(10)
-//                    
-//                    Button(action: {
-//                        copyToClipboard(myPairingCode)
-//                        showCopyAlert = true
-//                    }) {
-//                        Image(systemName: "doc.on.doc")
-//                            .resizable()
-//                            .scaledToFit()
-//                            .frame(width: 30, height: 30)
-//                            .foregroundColor(.gray)
-//                    }
-//                }
-//            }
-//            
-//            HStack {
-//                TextField("相手のペアリングIDを入力", text: $searchCode)
-//                    .textFieldStyle(RoundedBorderTextFieldStyle())
-//                    .padding(.leading, 10)
-//                
-//                Button(action: {
-//                    searchUserByPairingCode(code: searchCode) { results in
-//                        self.searchResults = results
-//                    }
-//                }) {
-//                    Image(systemName: "magnifyingglass")
-//                        .foregroundColor(.white)
-//                        .padding()
-//                        .background(Color.blue)
-//                        .clipShape(Circle())
-//                }
-//            }
-//            .padding(.horizontal, 10)
-//            
-//            if !searchResults.isEmpty {
-//                Text("検索結果")
-//                    .font(.headline)
-//                    .padding(.top, 10)
-//                
-//                List(searchResults.keys.sorted(), id: \.self) { userID in
-//                    Button(action: {
-//                        selectedUserID = userID
-//                    }) {
-//                        HStack {
-//                            Text(searchResults[userID] ?? "不明")
-//                                .foregroundColor(.primary)
-//                            Spacer()
-//                            if selectedUserID == userID {
-//                                Image(systemName: "checkmark.circle.fill")
-//                                    .foregroundColor(.blue)
-//                            }
-//                        }
-//                    }
-//                    .padding(.vertical, 5)
-//                }
-//            }
-//            
-//            if let partnerID = selectedUserID {
-//                Button(action: {
-//                    pairWithPartner(partnerID: partnerID)
-//                }) {
-//                    Text("ペアリングする")
-//                        .font(.title2)
-//                        .fontWeight(.bold)
-//                        .foregroundColor(.white)
-//                        .padding()
-//                        .frame(maxWidth: .infinity)
-//                        .background(Color.green)
-//                        .cornerRadius(10)
-//                }
-//                .padding(.horizontal, 20)
-//                .padding(.top, 10)
-//            }
-//            
-//            Button(action: {
-//                isSharing = true
-//            }) {
-//                HStack {
-//                    Image(systemName: "square.and.arrow.up")
-//                    Text("アプリを共有")
-//                }
-//                .font(.title2)
-//                .padding()
-//                .frame(maxWidth: .infinity)
-//                .background(Color.orange)
-//                .foregroundColor(.white)
-//                .clipShape(RoundedRectangle(cornerRadius: 10))
-//            }
-//            .padding(.horizontal, 20)
-//            
-//            Spacer()
-//        }
-//        .padding()
-//        .background(Color(.systemGroupedBackground))
-//        .cornerRadius(15)
-//        .sheet(isPresented: $isSharing) {
-//            ActivityViewController(activityItems: ["一緒にアプリを使おう！\nペアリングID: \(myPairingCode)\nダウンロードはこちら: https://apps.apple.com/app/yourapp-id"])
-//        }
-//        .alert(isPresented: $showCopyAlert) {
-//            Alert(title: Text("コピーしました"), message: Text("ペアリングIDがコピーされました"), dismissButton: .default(Text("OK")))
-//        }
-//        .onAppear {
-//            fetchMyPairingCode()
-//        }
-//    }
-//    
-//    func fetchMyPairingCode() {
-//        guard let myUserID = Auth.auth().currentUser?.uid else { return }
-//        
-//        let ref = Database.database().reference()
-//        ref.child("users").child(myUserID).child("pairingCode").observeSingleEvent(of: .value) { snapshot in
-//            if let code = snapshot.value as? String {
-//                myPairingCode = code
-//            } else {
-//                myPairingCode = "未設定"
-//            }
-//        }
-//    }
-//    
-//    func copyToClipboard(_ text: String) {
-//        UIPasteboard.general.string = text
-//    }
-//    
-//    func searchUserByPairingCode(code: String, completion: @escaping ([String: String]) -> Void) {
-//        let ref = Database.database().reference()
-//        
-//        ref.child("pairingCodes").child(code).observeSingleEvent(of: .value) { snapshot in
-//            var results: [String: String] = [:]
-//            
-//            if let userID = snapshot.value as? String {
-//                ref.child("users").child(userID).observeSingleEvent(of: .value) { userSnapshot in
-//                    if let userData = userSnapshot.value as? [String: Any],
-//                       let userName = userData["pairingCode"] as? String {
-//                        results[userID] = userName
-//                    }
-//                    completion(results)
-//                }
-//            } else {
-//                completion(results) // 検索結果なし
-//            }
-//        }
-//    }
-//    
-//    func pairWithPartner(partnerID: String) {
-//        guard let myUserID = Auth.auth().currentUser?.uid else { return }
-//        
-//        let ref = Database.database().reference()
-//        
-//        // 自分の情報に相手の userID を保存
-//        ref.child("users").child(myUserID).updateChildValues(["partnerId": partnerID])
-//        
-//        // 相手の情報にも自分の userID を保存
-//        ref.child("users").child(partnerID).updateChildValues(["partnerId": myUserID]) { error, _ in
-//            if let error = error {
-//                print("ペアリング失敗: \(error.localizedDescription)")
-//            } else {
-//                print("ペアリング成功")
-//            }
-//        }
-//    }
-//}
-
-
 struct HeartReceivedView: View {
     var count: Int
     @Environment(\.presentationMode) var presentationMode
@@ -1700,10 +1860,6 @@ struct HeartReceivedView: View {
 
     var body: some View {
         ZStack {
-            // 🔹 ふんわりピンクのグラデーション背景
-//            LinearGradient(gradient: Gradient(colors: [Color.white,Color.pink.opacity(0.6)]),
-//                           startPoint: .topLeading,
-//                           endPoint: .bottomTrailing)
             Image("ハート背景")
                 .resizable()
                 .edgesIgnoringSafeArea(.all)
@@ -1724,7 +1880,7 @@ struct HeartReceivedView: View {
                     .font(.system(size: 18))
 
                 // 🔹 受信回数を強調
-                Text("合計 \(count) 回受信されています")
+                Text("合計 \(count) 回送られています")
                     .font(.title2)
                     .fontWeight(.semibold)
                     .foregroundColor(.black)
@@ -1737,6 +1893,7 @@ struct HeartReceivedView: View {
 
                 // 🔹 閉じるボタンをスタイリッシュに
                 Button(action: {
+                    generateHapticFeedback()
                     isPresented = false
                 }) {
                     HStack {
@@ -1761,6 +1918,14 @@ struct HeartReceivedView: View {
     }
 }
 
+func isSmallDevice() -> Bool {
+    return UIScreen.main.bounds.width < 390
+}
+
+func generateHapticFeedback() {
+    let generator = UIImpactFeedbackGenerator(style: .medium)
+    generator.impactOccurred()
+}
 
 import UIKit
 import SwiftUI
@@ -1785,7 +1950,7 @@ struct ActivityViewController: UIViewControllerRepresentable {
 
 #Preview {
     HeartBeatAnimationView()
-//    PairingView()
+//    PairingView(tutorialNum: .constant(3))
 //    HeartReceivedView(count: 1)
 //    PairingRequestView(partnerID: "test", isPresented: .constant(false))
 }
